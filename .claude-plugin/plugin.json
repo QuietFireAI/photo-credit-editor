@@ -12,13 +12,20 @@
   "license": "MIT",
   "keywords": [
     "photo credits",
-    "attribution",
     "image credits",
+    "photo attribution",
+    "attribution",
     "image licensing",
+    "creative commons",
+    "copyright",
     "photography",
+    "images",
     "website",
     "credits page",
-    "captions"
+    "captions",
+    "slideshow captions",
+    "image audit",
+    "small business website"
   ],
   "icon": "./.claude-plugin/icon.png",
   "documentationUrl": "https://github.com/QuietFireAI/photo-credit-editor/blob/main/docs/USER-GUIDE.md",
