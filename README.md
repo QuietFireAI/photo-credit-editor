@@ -44,6 +44,17 @@ To fill in credits yourself, ask Claude for the Photo Credits Editor, open it in
 
 The plugin has no hooks, no MCP servers, no dependencies to install, and collects no data.
 
+## Troubleshooting
+
+- **Captions or the credits list do not appear when I open a page from my computer.** The site script loads `photo-credits.json` over the web, and browsers block that for pages opened straight from disk. Check on the live site or through a local web server.
+- **Credits show on the home page but not on pages in subfolders.** Those pages need the path back to the file, for example `data-manifest="../photo-credits.json"` on the script tag.
+- **I uploaded a new `photo-credits.json` and the site still shows the old credits.** Browsers may keep the old copy for up to an hour. Reload the page with the cache cleared to see it sooner.
+- **A slideshow shows no caption.** Set `data-rotators` to the slideshow's own selector. If slides move sideways instead of fading, also set `data-active` to the selector for the slide on show, such as `.active`.
+- **A picture has a credit in the file but shows none on the site.** Check that `file` is the path from the top folder of the site, that `credit` is not blank, and that "No credit needed" is not ticked.
+- **The editor lists file paths that look wrong.** Choose the top folder of the site, the one that holds the home page, not a folder inside it.
+- **The scan says "no mention found" for a picture I know is used.** A script that builds file names in code is not detected. The picture still needs a credit.
+- **The scan will not run.** It needs Python 3. Nothing else has to be installed.
+
 ## A note on permission
 
 A credit line says who made a picture. It is not permission to use it. This plugin records what you know; it does not decide whether you are allowed to publish a picture. When in doubt, ask the owner.
