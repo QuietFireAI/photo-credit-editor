@@ -4,8 +4,15 @@
   "description": "Find every picture on a website, record who made it and where it came from, and show credit lines and a credits page.",
   "version": "1.0.0",
   "author": {
-    "name": "Firelands AI"
+    "name": "Firelands AI",
+    "email": "support@firelandsai.com"
   },
   "license": "MIT",
-  "keywords": ["photo credits", "attribution", "images", "website", "licensing"]
+  "keywords": [
+    "photo credits",
+    "attribution",
+    "images",
+    "website",
+    "licensing"
+  ]
 }

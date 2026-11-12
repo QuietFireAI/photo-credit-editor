@@ -48,6 +48,10 @@ The plugin has no hooks, no MCP servers, no dependencies to install, and collect
 
 A credit line says who made a picture. It is not permission to use it. This plugin records what you know; it does not decide whether you are allowed to publish a picture. When in doubt, ask the owner.
 
+## Support
+
+Questions or problems: support@firelandsai.com
+
 ## License
 
-MIT. See `LICENSE`.
+MIT. Copyright Firelands AI. See `LICENSE`.
