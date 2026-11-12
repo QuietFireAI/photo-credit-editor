@@ -1,0 +1,11 @@
+{
+  "name": "firelands-photo-credits",
+  "displayName": "Photo Credits",
+  "description": "Find every picture on a website, record who made it and where it came from, and show credit lines and a credits page.",
+  "version": "1.0.0",
+  "author": {
+    "name": "Firelands AI"
+  },
+  "license": "MIT",
+  "keywords": ["photo credits", "attribution", "images", "website", "licensing"]
+}
