@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Photo credits - Sample town site</title>
+<style>
+  body { margin: 0 auto; max-width: 720px; padding: 24px; font: 16px/1.5 system-ui, sans-serif; color: #1b1d1a; }
+  .photo-credit-item { padding: 14px 0; border-bottom: 1px solid #d9d5c8; }
+  .photo-credit-item h3, .photo-credit-item p { margin: 0; }
+</style>
+</head>
+<body>
+  <h1>Photo credits</h1>
+  <p>The pictures on this site are used with thanks to the people and collections below.</p>
+  <div id="creditList"></div>
+  <p><a href="index.html">Back to the home page</a></p>
+  <script src="../../skills/photo-credits/assets/photo-credit.js" defer
+          data-manifest="photo-credits.json"
+          data-list="#creditList"></script>
+</body>
+</html>

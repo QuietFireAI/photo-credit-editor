@@ -1,18 +1,28 @@
 {
   "name": "firelands-photo-credits",
   "displayName": "Photo Credits",
-  "description": "Find every picture on a website, record who made it and where it came from, and show credit lines and a credits page.",
   "version": "1.0.0",
+  "description": "Find every picture on a website, record who made it and where it came from, and show credit lines and a credits page.",
   "author": {
     "name": "Firelands AI",
     "email": "support@firelandsai.com"
   },
+  "homepage": "https://github.com/QuietFireAI/photo-credit-editor#readme",
+  "repository": "https://github.com/QuietFireAI/photo-credit-editor",
   "license": "MIT",
   "keywords": [
     "photo credits",
     "attribution",
-    "images",
+    "image credits",
+    "image licensing",
+    "photography",
     "website",
-    "licensing"
-  ]
+    "credits page",
+    "captions"
+  ],
+  "icon": "./.claude-plugin/icon.png",
+  "documentationUrl": "https://github.com/QuietFireAI/photo-credit-editor/blob/main/docs/USER-GUIDE.md",
+  "supportUrl": "https://github.com/QuietFireAI/photo-credit-editor/blob/main/SUPPORT.md",
+  "privacyPolicyUrl": "https://github.com/QuietFireAI/photo-credit-editor/blob/main/PRIVACY.md",
+  "termsOfServiceUrl": "https://github.com/QuietFireAI/photo-credit-editor/blob/main/TERMS.md"
 }

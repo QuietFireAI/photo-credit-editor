@@ -7,7 +7,7 @@ description: Track and display photo credits for a website. Use when the user wa
 
 Help the owner of a website record who made each picture on the site and where it came from, then show that on the site. Everything is driven by one file, `photo-credits.json`, kept in the top folder of the site.
 
-This skill ships four files. Paths are relative to this skill's folder.
+This skill ships four files. Paths in the table are relative to this skill's folder. In commands, `${CLAUDE_SKILL_DIR}` stands for that folder; where it is not filled in for you, use the path to this skill's folder instead.
 
 | File | What it is |
 | --- | --- |
@@ -52,7 +52,7 @@ A credit line is not permission to use a picture. If the user asks whether they 
 Ask for the site folder only if you cannot find it. Then run:
 
 ```bash
-python3 scripts/scan_photos.py /path/to/site
+python3 ${CLAUDE_SKILL_DIR}/scripts/scan_photos.py /path/to/site
 ```
 
 This changes nothing. It reports how many pictures are credited, marked no credit needed, blank, not yet listed, and listed but missing from the folder, and names the pages that mention each one. Add `--json` if you want to work with the result.
@@ -64,7 +64,7 @@ Useful options: `--exclude "icons/*"` (repeatable) and `--min-kb 5` leave out ic
 ### 2. Add the missing entries
 
 ```bash
-python3 scripts/scan_photos.py /path/to/site --write
+python3 ${CLAUDE_SKILL_DIR}/scripts/scan_photos.py /path/to/site --write
 ```
 
 This adds a blank entry for each unlisted picture and creates the file if it does not exist. Existing entries are never changed.
@@ -106,7 +106,7 @@ The script loads `photo-credits.json` with `fetch`, so captions do not appear wh
 ### 5. Check before launch
 
 ```bash
-python3 scripts/scan_photos.py /path/to/site --check
+python3 ${CLAUDE_SKILL_DIR}/scripts/scan_photos.py /path/to/site --check
 ```
 
 Exit status 1 means at least one picture still has no credit. Report the exact list. Do not say the site is fully credited unless this passes.

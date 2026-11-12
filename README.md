@@ -14,16 +14,41 @@ Most small sites collect pictures from many places: a local photographer, a hist
 
 Claude never makes up a credit. A field is filled only from what you tell it or from a source page you point it to, and it asks before writing.
 
+## Install
+
+In Claude, open Customize, then Plugins, and add Photo Credits. To install straight from this repository instead, choose Add, then Add marketplace, and enter this repository's address.
+
+In Claude Code:
+
+```bash
+claude plugin marketplace add QuietFireAI/photo-credit-editor
+claude plugin install firelands-photo-credits@firelands-ai
+```
+
 ## How to use it
 
-Ask Claude things like:
+Give Claude access to your website folder and ask things like:
 
 - "Which pictures on my site have no photo credit?"
 - "Set up photo credits for this site."
-- "Add a photo credits page."
+- "Add a photo credits page and captions."
 - "Check the photo credits before we launch."
 
 To fill in credits yourself, ask Claude for the Photo Credits Editor, open it in a browser, choose your site folder, type the credits, and download `photo-credits.json` into the top folder of your site.
+
+A three-picture sample site for trying all of this is in [`examples/sample-site`](examples/sample-site).
+
+## Documentation
+
+| Document | What it covers |
+| --- | --- |
+| [User Guide](docs/USER-GUIDE.md) | The credits file, the editor, the site script settings, the scanner, troubleshooting and limits |
+| [Support](SUPPORT.md) | How to get help |
+| [Privacy Policy](PRIVACY.md) | What data the plugin handles: none is collected |
+| [Terms of Use](TERMS.md) | License, warranty and your responsibilities |
+| [Security](SECURITY.md) | How to report a security problem |
+| [Changelog](CHANGELOG.md) | What changed in each release |
+| [Contributing](CONTRIBUTING.md) | How to propose a change |
 
 ## What is inside
 
@@ -34,6 +59,7 @@ To fill in credits yourself, ask Claude for the Photo Credits Editor, open it in
 | `skills/photo-credits/assets/photo-credits-editor.html` | The editor |
 | `skills/photo-credits/assets/photo-credit.js` | The script a site loads to show credits |
 | `skills/photo-credits/assets/credits-page-snippet.html` | Starting markup for a credits page |
+| `examples/sample-site/` | A small site for trying the plugin |
 
 ## What it runs, reads and sends
 
@@ -46,14 +72,12 @@ The plugin has no hooks, no MCP servers, no dependencies to install, and collect
 
 ## Troubleshooting
 
-- **Captions or the credits list do not appear when I open a page from my computer.** The site script loads `photo-credits.json` over the web, and browsers block that for pages opened straight from disk. Check on the live site or through a local web server.
+- **Captions or the credits list do not appear when I open a page from my computer.** Browsers block the site script from loading `photo-credits.json` for pages opened straight from disk. Check on the live site or through a local web server.
 - **Credits show on the home page but not on pages in subfolders.** Those pages need the path back to the file, for example `data-manifest="../photo-credits.json"` on the script tag.
-- **I uploaded a new `photo-credits.json` and the site still shows the old credits.** Browsers may keep the old copy for up to an hour. Reload the page with the cache cleared to see it sooner.
-- **A slideshow shows no caption.** Set `data-rotators` to the slideshow's own selector. If slides move sideways instead of fading, also set `data-active` to the selector for the slide on show, such as `.active`.
 - **A picture has a credit in the file but shows none on the site.** Check that `file` is the path from the top folder of the site, that `credit` is not blank, and that "No credit needed" is not ticked.
-- **The editor lists file paths that look wrong.** Choose the top folder of the site, the one that holds the home page, not a folder inside it.
-- **The scan says "no mention found" for a picture I know is used.** A script that builds file names in code is not detected. The picture still needs a credit.
-- **The scan will not run.** It needs Python 3. Nothing else has to be installed.
+- **The editor lists file paths that look wrong.** Choose the top folder of the site, the one that holds the home page.
+
+The [User Guide](docs/USER-GUIDE.md#troubleshooting) has the full list.
 
 ## A note on permission
 
@@ -61,8 +85,8 @@ A credit line says who made a picture. It is not permission to use it. This plug
 
 ## Support
 
-Questions or problems: support@firelandsai.com
+Questions or problems: support@firelandsai.com, or see [SUPPORT.md](SUPPORT.md).
 
 ## License
 
-MIT. Copyright Firelands AI. See `LICENSE`.
+MIT. Copyright Firelands AI. See [LICENSE](LICENSE).

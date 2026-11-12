@@ -1,0 +1,15 @@
+{
+  "name": "firelands-ai",
+  "description": "Plugins from Firelands AI",
+  "owner": {
+    "name": "Firelands AI",
+    "email": "support@firelandsai.com"
+  },
+  "plugins": [
+    {
+      "name": "firelands-photo-credits",
+      "source": "./",
+      "description": "Find every picture on a website, record who made it and where it came from, and show credit lines and a credits page."
+    }
+  ]
+}

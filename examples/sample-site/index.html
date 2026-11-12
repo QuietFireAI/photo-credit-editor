@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sample town site</title>
+<style>
+  body { margin: 0 auto; max-width: 720px; padding: 24px; font: 16px/1.5 system-ui, sans-serif; color: #1b1d1a; }
+  .slideshow { position: relative; height: 320px; overflow: hidden; border-radius: 6px; }
+  .slideshow .slide { position: absolute; inset: 0; background-size: cover; background-position: center; opacity: 0; transition: opacity 0.8s; }
+  .slideshow .slide.on { opacity: 1; }
+  figure { margin: 24px 0; }
+  figure img { width: 100%; border-radius: 6px; display: block; }
+</style>
+</head>
+<body>
+  <h1>Sample town site</h1>
+  <p>A three-picture site for trying the Photo Credits plugin. Two pictures have a credit. One does not.</p>
+
+  <div class="slideshow">
+    <div class="slide on" style="background-image:url('images/main-street.jpg')"></div>
+    <div class="slide" style="background-image:url('images/old-mill.jpg')"></div>
+  </div>
+
+  <figure><img src="images/old-mill.jpg" alt="Hills at dusk"></figure>
+  <figure><img src="images/town-park.jpg" alt="Hills and a lake"></figure>
+
+  <p><a href="credits.html">Photo credits</a></p>
+
+  <script>
+    // A plain fade slideshow, so there is something for the captions to follow.
+    setInterval(function () {
+      document.querySelectorAll('.slideshow .slide').forEach(function (s) { s.classList.toggle('on'); });
+    }, 4000);
+  </script>
+  <script src="../../skills/photo-credits/assets/photo-credit.js" defer
+          data-manifest="photo-credits.json"
+          data-rotators=".slideshow"
+          data-images="figure img"></script>
+</body>
+</html>
