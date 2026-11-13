@@ -1,8 +1,8 @@
 {
-  "name": "firelands-photo-credits",
-  "displayName": "Photo Credits",
-  "version": "1.0.0",
-  "description": "Find every picture on a website, record who made it and where it came from, and show credit lines and a credits page.",
+  "name": "photo-credit-editor",
+  "displayName": "Photo Credit Editor",
+  "version": "1.1.0",
+  "description": "Make sure every picture on a website carries a proper credit: find the ones without, work out who made each and under what license, write the attribution, and show it on the site.",
   "author": {
     "name": "Firelands AI",
     "email": "support@firelandsai.com"
@@ -23,7 +23,7 @@
     "website",
     "credits page",
     "captions",
-    "slideshow captions",
+    "image metadata",
     "image audit",
     "small business website"
   ],

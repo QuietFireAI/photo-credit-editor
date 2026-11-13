@@ -1,6 +1,6 @@
 # Privacy Policy
 
-**Photo Credits** is published by Firelands AI. Last updated: November 12, 2026.
+**Photo Credit Editor** is published by Firelands AI. Last updated: November 12, 2026.
 
 ## Summary
 
@@ -11,8 +11,8 @@ This plugin collects no personal data. Firelands AI receives nothing from it: no
 | Part | Where it runs | What it reads | What it stores | What it sends |
 | --- | --- | --- | --- | --- |
 | The skill (instructions for Claude) | In your Claude session | The website folder you point Claude to | Nothing of its own | Nothing |
-| `scan_photos.py` | On your computer, or in Claude's code sandbox | File names and text files inside the website folder you name | Only `photo-credits.json`, and only when run with `--write` | Nothing. It makes no network requests |
-| Photo Credits Editor | In your web browser | The pictures and `photo-credits.json` in the folder you choose | Unsaved work, in that browser's local storage on your computer | Nothing. Pictures and credits never leave your computer |
+| `scan_photos.py` | On your computer, or in Claude's code sandbox | Pictures and text files inside the website folder you name, including the author and copyright stored inside pictures | Only `photo-credits.json`, and only when run with `--write` | Nothing. It makes no network requests |
+| Photo Credit Editor | In your web browser | The pictures in the folder you choose, including the author and copyright stored inside them, and `photo-credits.json` | Unsaved work, in that browser's local storage on your computer | Nothing. Pictures and credits are not uploaded. A link to Wikimedia Commons is offered for files named like its downloads, and opens only if you click it |
 | `photo-credit.js` | On your website, in each visitor's browser | `photo-credits.json` from your own website | Nothing. It sets no cookies | Nothing. It contacts no server other than your own website |
 
 ## Information you put in a credits file
@@ -23,7 +23,7 @@ This plugin collects no personal data. Firelands AI receives nothing from it: no
 
 When you use this plugin inside Claude, your conversation and any files you share with Claude are handled under your own agreement with Anthropic and Anthropic's privacy policy. This plugin does not change that and receives none of that data.
 
-If you give Claude the address of a web page where a picture came from, Claude may read that page to find the author and license. That request is made by Claude at your direction, not by Firelands AI.
+To find the source of a picture, Claude may read a web page or search the web, using words from the picture's file name, caption or stored author. Those requests are made by Claude in your conversation, at your direction, not by Firelands AI.
 
 ## Children
 

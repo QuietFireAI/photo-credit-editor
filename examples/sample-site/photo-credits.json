@@ -1,5 +1,5 @@
 {
- "note": "Edit with the Photo Credits Editor. One entry per picture. A picture with a blank credit stays off the credits page.",
+ "note": "Edit with the Photo Credit Editor. One entry per picture. A picture with a blank credit stays off the credits page.",
  "photos": [
   {
    "file": "images/main-street.jpg",
@@ -13,9 +13,9 @@
    "file": "images/old-mill.jpg",
    "title": "Hills at dusk",
    "credit": "Firelands AI",
-   "source": "Sample picture made for this example",
-   "license": "MIT License",
-   "link": "https://github.com/QuietFireAI/photo-credit-editor"
+   "source": "",
+   "license": "",
+   "link": ""
   },
   {
    "file": "images/town-park.jpg",

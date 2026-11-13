@@ -3,30 +3,30 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Photo Credits Editor</title>
+<title>Photo Credit Editor</title>
 <style>
 :root {
   --bg: #f5f4ef; --card: #ffffff; --ink: #1b1d1a; --muted: #5a5e56; --line: #d9d5c8;
-  --accent: #1f3d2e; --accent-ink: #ffffff; --ok: #2e6b46; --warn: #9a5b00; --bad: #a12b2b; --field: #faf9f5;
+  --accent: #1f3d2e; --accent-ink: #ffffff; --ok: #2e6b46; --warn: #9a5b00; --part: #1d5fa8; --bad: #a12b2b; --field: #faf9f5; --lead: #eef4fb;
 }
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #171916; --card: #20231f; --ink: #ecebe4; --muted: #a3a79c; --line: #3a3e37;
-    --accent: #9fd0b1; --accent-ink: #12251a; --ok: #8fd0a6; --warn: #e6b35c; --bad: #f08a8a; --field: #191b18;
+    --accent: #9fd0b1; --accent-ink: #12251a; --ok: #8fd0a6; --warn: #e6b35c; --part: #8fbdf0; --bad: #f08a8a; --field: #191b18; --lead: #1c2530;
   }
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
 main { max-width: 1000px; margin: 0 auto; padding: 40px 24px 96px; }
 h1 { margin: 0 0 8px; font-size: 2rem; font-weight: 600; letter-spacing: -0.01em; }
-.lede { margin: 0 0 22px; color: var(--muted); max-width: 68ch; }
+.lede { margin: 0 0 22px; color: var(--muted); max-width: 70ch; }
 .bar { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 12px; align-items: center; }
 button, input { font: inherit; color: inherit; }
 .btn { padding: 10px 16px; border: 1px solid var(--ink); border-radius: 4px; background: var(--card); font-weight: 600; font-size: 0.9rem; cursor: pointer; }
 .btn:hover { background: var(--field); }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 .btn.primary:hover { filter: brightness(1.1); }
-.btn:focus-visible, input:focus-visible, .chip:focus-visible, .linkbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.btn:focus-visible, input:focus-visible, .chip:focus-visible, .linkbtn:focus-visible, .use:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 #status { min-height: 1.5em; margin: 0 0 16px; color: var(--ok); font-size: 0.92rem; }
 #status.warn { color: var(--warn); }
 #status.bad { color: var(--bad); }
@@ -37,15 +37,31 @@ button, input { font: inherit; color: inherit; }
 #search { padding: 7px 10px; border: 1px solid var(--line); border-radius: 4px; background: var(--card); min-width: 200px; }
 #rows { display: grid; gap: 12px; }
 .row { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 14px; padding: 14px; background: var(--card); border: 1px solid var(--line); border-left: 4px solid var(--warn); border-radius: 4px; }
+.row.partial { border-left-color: var(--part); }
 .row.done { border-left-color: var(--ok); }
 .row.missing { border-left-color: var(--bad); }
 .thumb { width: 112px; height: 84px; border: 1px solid var(--line); border-radius: 3px; background: var(--field); display: grid; place-items: center; overflow: hidden; color: var(--muted); font-size: 0.72rem; text-align: center; padding: 4px; }
 .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .fields label { display: grid; gap: 3px; font-size: 0.76rem; font-weight: 600; }
-.fields label.wide { grid-column: 1 / -1; }
 .fields input { padding: 8px 9px; border: 1px solid var(--line); border-radius: 3px; background: var(--field); font-weight: 400; font-size: 0.92rem; width: 100%; }
 .fields input.badlink { border-color: var(--bad); }
+.leads { grid-column: 1 / -1; padding: 10px 12px; background: var(--lead); border: 1px solid var(--line); border-radius: 3px; font-size: 0.86rem; }
+.leads h3 { margin: 0 0 6px; font-size: 0.8rem; font-weight: 700; }
+.leads ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 5px; }
+.leads li { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; }
+.leads .what { color: var(--muted); min-width: 9.5em; }
+.leads .val { font-weight: 600; overflow-wrap: anywhere; }
+.use { padding: 2px 9px; border: 1px solid var(--part); border-radius: 999px; background: transparent; color: var(--part); font-size: 0.76rem; font-weight: 600; cursor: pointer; }
+.use:hover { background: var(--card); }
+.leads a { color: var(--part); }
+.leads p { margin: 6px 0 0; color: var(--muted); font-size: 0.8rem; }
+.state { grid-column: 1 / -1; font-size: 0.84rem; }
+.state b { font-weight: 700; }
+.row .state b { color: var(--warn); }
+.row.partial .state b { color: var(--part); }
+.row.done .state b { color: var(--ok); }
+.state .reads { color: var(--muted); }
 .foot { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; font-size: 0.84rem; color: var(--muted); }
 .foot label { display: flex; gap: 6px; align-items: center; cursor: pointer; }
 .tag { padding: 1px 8px; border-radius: 999px; border: 1px solid currentColor; font-size: 0.74rem; font-weight: 600; }
@@ -53,7 +69,7 @@ button, input { font: inherit; color: inherit; }
 .tag.gone { color: var(--bad); }
 .linkbtn { margin-left: auto; border: 0; background: none; color: var(--bad); cursor: pointer; text-decoration: underline; font-size: 0.84rem; padding: 2px; }
 .empty { padding: 36px 20px; text-align: center; color: var(--muted); border: 1px dashed var(--line); border-radius: 4px; }
-.small { font-size: 0.82rem; color: var(--muted); margin: 18px 0 0; max-width: 72ch; }
+.small { font-size: 0.82rem; color: var(--muted); margin: 18px 0 0; max-width: 74ch; }
 @media (max-width: 640px) {
   .row { grid-template-columns: 1fr; }
   .fields { grid-template-columns: 1fr; }
@@ -63,8 +79,8 @@ button, input { font: inherit; color: inherit; }
 </head>
 <body>
 <main>
-  <h1>Photo credits editor</h1>
-  <p class="lede">Record who took each picture on your website and where it came from. Choose your site folder to list every picture, fill in the credits, then download <b>photo-credits.json</b> and put it in the top folder of your site. Nothing leaves this computer.</p>
+  <h1>Photo credit editor</h1>
+  <p class="lede">Make sure every picture on your website carries a proper credit. Choose your site folder to list every picture. The editor reads each picture file for the author and copyright stored inside it, shows what is still missing, and saves everything to <b>photo-credits.json</b>, which goes in the top folder of your site. Your pictures stay on this computer.</p>
 
   <div class="bar">
     <button class="btn" id="btnFolder" type="button">Choose site folder</button>
@@ -78,14 +94,15 @@ button, input { font: inherit; color: inherit; }
 
   <div class="tools">
     <button class="chip" type="button" data-filter="all" aria-pressed="true">All</button>
-    <button class="chip" type="button" data-filter="todo" aria-pressed="false">Needs a credit</button>
-    <button class="chip" type="button" data-filter="done" aria-pressed="false">Done</button>
+    <button class="chip" type="button" data-filter="todo" aria-pressed="false">Needs work</button>
+    <button class="chip" type="button" data-filter="done" aria-pressed="false">Complete</button>
     <input id="search" type="search" placeholder="Search file, title or credit" aria-label="Search pictures">
     <span id="count"></span>
   </div>
 
   <div id="rows"></div>
 
+  <p class="small"><b>What counts as complete:</b> a credit, plus the license or permission you are using the picture under. A Creative Commons picture also needs a link to its source page and the license version, and versions 3.0 and earlier need the title. A lead found in a file is evidence, not proof: use it only if you know it is right.</p>
   <p class="small">A credit line says who made a picture. It is not permission to use it. If you are not sure you are allowed to use a picture, check with its owner before publishing. <button class="linkbtn" id="btnReset" type="button" style="margin-left:0">Start over with an empty list</button></p>
 
   <datalist id="licenses">
@@ -95,10 +112,10 @@ button, input { font: inherit; color: inherit; }
     <option value="CC0 1.0"></option>
     <option value="CC BY 4.0"></option>
     <option value="CC BY-SA 4.0"></option>
-    <option value="CC BY 2.0"></option>
+    <option value="CC BY-NC 4.0"></option>
+    <option value="CC BY-ND 4.0"></option>
     <option value="CC BY-SA 3.0"></option>
-    <option value="Unsplash License"></option>
-    <option value="Pexels License"></option>
+    <option value="CC BY 2.0"></option>
     <option value="Licensed stock photo"></option>
   </datalist>
 </main>
@@ -108,7 +125,7 @@ button, input { font: inherit; color: inherit; }
   'use strict';
 
   var IMAGE = /\.(jpe?g|png|webp|gif|avif)$/i;
-  var NOTE = 'Edit with the Photo Credits Editor. One entry per picture. A picture with a blank credit stays off the credits page.';
+  var NOTE = 'Edit with the Photo Credit Editor. One entry per picture. A picture with a blank credit stays off the credits page.';
   var DRAFT_KEY = 'photo-credits-editor-draft-v1';
   var FIELDS = [
     { key: 'file', label: 'File on the site', hint: 'images/gallery/photo1.jpg' },
@@ -116,7 +133,7 @@ button, input { font: inherit; color: inherit; }
     { key: 'credit', label: 'Credit (photographer or owner)', hint: '' },
     { key: 'source', label: 'Source', hint: 'Wikimedia Commons, family collection, ...' },
     { key: 'license', label: 'License or permission', hint: 'CC BY-SA 4.0, Own work, ...', list: 'licenses' },
-    { key: 'link', label: 'Link to the source page', hint: 'https://', wide: false }
+    { key: 'link', label: 'Link to the source page', hint: 'https://' }
   ];
 
   var state = { photos: [], extra: {}, filter: 'all', query: '', folder: false, dirty: false };
@@ -127,12 +144,217 @@ button, input { font: inherit; color: inherit; }
   function normPath(p) { return String(p || '').replace(/\\/g, '/').replace(/^(\.\/|\/)+/, '').toLowerCase(); }
   /* The site script ignores the file type, so mill.webp and mill.jpg are one picture with one credit. */
   function stem(k) { return k.replace(/\.[a-z0-9]+$/, ''); }
-  function isDone(p) { return !!p.skip || !!String(p.credit || '').trim(); }
   function badLink(p) { var l = String(p.link || '').trim(); return !!l && !/^https?:\/\//i.test(l); }
+
+  /* ---- What a proper attribution needs. The same rules as scan_photos.py. ---- */
+  function licenseFamily(text) {
+    var t = String(text || '').toLowerCase();
+    if (!t.trim()) return '';
+    if (/\bcc0\b|public domain|no known copyright/.test(t)) return 'public domain';
+    if (/\bcc[ -]?by\b|creative commons/.test(t)) return 'creative commons';
+    return 'other';
+  }
+  function problems(p) {
+    var out = [], lic = String(p.license || '').trim(), link = String(p.link || '').trim();
+    if (!lic) out.push('no license or permission recorded');
+    if (licenseFamily(lic) === 'creative commons') {
+      if (!/^https?:\/\//i.test(link)) out.push('a Creative Commons license needs a link to the source page');
+      var v = /(\d)\.\d/.exec(lic);
+      if (!v) out.push('the license version is missing, for example 4.0');
+      else if (parseInt(v[1], 10) <= 3 && !String(p.title || '').trim()) out.push('Creative Commons versions 3.0 and earlier need the title of the work');
+    }
+    return out;
+  }
+  /* 'done' = complete or no credit needed, 'partial' = credited but incomplete, 'todo' = no credit. */
+  function status(p) {
+    if (p.skip) return 'done';
+    if (!String(p.credit || '').trim()) return 'todo';
+    return problems(p).length ? 'partial' : 'done';
+  }
+  function licenseName(url) {
+    var m = /creativecommons\.org\/licenses\/([a-z-]+)\/(\d\.\d)/i.exec(url || '');
+    if (m) return 'CC ' + m[1].toUpperCase() + ' ' + m[2];
+    if (/creativecommons\.org\/publicdomain\/zero\/1\.0/i.test(url || '')) return 'CC0 1.0';
+    if (/creativecommons\.org\/publicdomain\/mark/i.test(url || '')) return 'Public domain';
+    return url || '';
+  }
 
   function say(text, kind) { var s = $('status'); s.textContent = text || ''; s.className = kind || ''; }
 
-  /* Turn whatever was in a file into clean rows. Unknown fields are kept so nothing is lost on save. */
+  /* ---- Facts stored inside a picture file: author, copyright, title. ---- */
+  var EXIF_ASCII = { 0x010E: 'description', 0x013B: 'artist', 0x8298: 'copyright' };
+  var EXIF_UTF16 = { 0x9C9B: 'title', 0x9C9D: 'artist' };
+  var IPTC = { '2:80': 'artist', '2:110': 'credit', '2:115': 'source', '2:116': 'copyright', '2:105': 'title', '2:5': 'title', '2:120': 'description' };
+  var RDF = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#';
+  var XMP_FIELDS = {
+    'http://purl.org/dc/elements/1.1/|creator': 'artist',
+    'http://purl.org/dc/elements/1.1/|rights': 'copyright',
+    'http://purl.org/dc/elements/1.1/|title': 'title',
+    'http://purl.org/dc/elements/1.1/|description': 'description',
+    'http://purl.org/dc/elements/1.1/|source': 'source',
+    'http://ns.adobe.com/photoshop/1.0/|Credit': 'credit',
+    'http://ns.adobe.com/photoshop/1.0/|Source': 'source',
+    'http://ns.adobe.com/xap/1.0/rights/|UsageTerms': 'license',
+    'http://ns.adobe.com/xap/1.0/rights/|WebStatement': 'license_link',
+    'http://creativecommons.org/ns#|license': 'license_link',
+    'http://creativecommons.org/ns#|attributionName': 'artist',
+    'http://creativecommons.org/ns#|attributionURL': 'source_link'
+  };
+  var PNG_KEYS = { author: 'artist', artist: 'artist', copyright: 'copyright', title: 'title', description: 'description', source: 'source', credit: 'credit' };
+
+  function text(bytes, enc) {
+    if (enc) return new TextDecoder(enc).decode(bytes);
+    try { return new TextDecoder('utf-8', { fatal: true }).decode(bytes); } catch (e) { return new TextDecoder('latin1').decode(bytes); }
+  }
+  function put(out, key, value) {
+    value = String(value == null ? '' : value).replace(/\u0000/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 300);
+    if (value && !(key in out)) out[key] = value;
+  }
+  function view(u8) { return new DataView(u8.buffer, u8.byteOffset, u8.byteLength); }
+
+  function readTiff(u8, out) {
+    if (u8.length < 8) return;
+    var le = u8[0] === 0x49 && u8[1] === 0x49;
+    if (!le && !(u8[0] === 0x4D && u8[1] === 0x4D)) return;
+    var d = view(u8);
+    if (d.getUint16(2, le) !== 42) return;
+    var start = d.getUint32(4, le), n = d.getUint16(start, le);
+    for (var i = 0; i < Math.min(n, 300); i++) {
+      var e = start + 2 + i * 12;
+      if (e + 12 > u8.length) break;
+      var tag = d.getUint16(e, le), kind = d.getUint16(e + 2, le), cnt = d.getUint32(e + 4, le);
+      if (!(cnt > 0 && cnt < 8000)) continue;
+      var at = cnt <= 4 ? e + 8 : d.getUint32(e + 8, le);
+      var raw = u8.subarray(at, at + cnt);
+      if (EXIF_ASCII[tag] && kind === 2) put(out, EXIF_ASCII[tag], text(raw));
+      else if (EXIF_UTF16[tag] && kind === 1) put(out, EXIF_UTF16[tag], text(raw, 'utf-16le'));
+    }
+  }
+  function readIptc(u8, out) {
+    var i = 0;
+    while (i + 5 <= u8.length) {
+      if (u8[i] !== 0x1C) { i++; continue; }
+      var len = (u8[i + 3] << 8) | u8[i + 4];
+      if (len & 0x8000) break;
+      var key = IPTC[u8[i + 1] + ':' + u8[i + 2]];
+      if (key) put(out, key, text(u8.subarray(i + 5, i + 5 + len)));
+      i += 5 + len;
+    }
+  }
+  function readPhotoshop(u8, out) {
+    var i = 0, d = view(u8);
+    while (i + 12 <= u8.length && u8[i] === 0x38 && u8[i + 1] === 0x42 && u8[i + 2] === 0x49 && u8[i + 3] === 0x4D) {
+      var resource = d.getUint16(i + 4);
+      var nameSize = 1 + u8[i + 6]; nameSize += nameSize % 2;
+      var at = i + 6 + nameSize;
+      if (at + 4 > u8.length) break;
+      var size = d.getUint32(at);
+      if (resource === 0x0404) readIptc(u8.subarray(at + 4, at + 4 + size), out);
+      i = at + 4 + size + (size % 2);
+    }
+  }
+  function readXmp(str, out) {
+    var doc = new DOMParser().parseFromString(str, 'application/xml');
+    if (doc.getElementsByTagName('parsererror').length) return;
+    var all = doc.getElementsByTagName('*');
+    for (var i = 0; i < all.length; i++) {
+      var el = all[i];
+      for (var a = 0; a < el.attributes.length; a++) {
+        var at = el.attributes[a], ak = XMP_FIELDS[(at.namespaceURI || '') + '|' + at.localName];
+        if (ak) put(out, ak, at.value);
+      }
+      var key = XMP_FIELDS[(el.namespaceURI || '') + '|' + el.localName];
+      if (!key) continue;
+      var items = [], lis = el.getElementsByTagNameNS(RDF, 'li');
+      for (var j = 0; j < lis.length; j++) if (lis[j].textContent.trim()) items.push(lis[j].textContent.trim());
+      put(out, key, items.length ? items.join(', ') : (el.children.length ? '' : el.textContent) || el.getAttributeNS(RDF, 'resource') || '');
+    }
+  }
+  function readXmpAnywhere(u8, out) {
+    var s = text(u8, 'latin1'), a = s.indexOf('<x:xmpmeta'), b = s.indexOf('</x:xmpmeta>', a);
+    if (a !== -1 && b !== -1) readXmp(text(u8.subarray(a, b + 12)), out);
+  }
+  function readJpeg(u8, out) {
+    var i = 2, d = view(u8);
+    while (i + 4 <= u8.length && u8[i] === 0xFF) {
+      var marker = u8[i + 1];
+      if (marker === 0xD8 || marker === 0x01 || (marker >= 0xD0 && marker <= 0xD7)) { i += 2; continue; }
+      if (marker === 0xDA) break;
+      var size = d.getUint16(i + 2), body = u8.subarray(i + 4, i + 2 + size);
+      var head = text(body.subarray(0, 29), 'latin1');
+      if (marker === 0xE1 && head.indexOf('Exif\u0000\u0000') === 0) readTiff(body.subarray(6), out);
+      else if (marker === 0xE1 && head === 'http://ns.adobe.com/xap/1.0/\u0000') readXmp(text(body.subarray(29)), out);
+      else if (marker === 0xED && head.indexOf('Photoshop 3.0\u0000') === 0) readPhotoshop(body.subarray(14), out);
+      i += 2 + size;
+    }
+  }
+  function inflate(u8) {
+    if (typeof DecompressionStream === 'undefined') return Promise.resolve(null);
+    try {
+      var stream = new Blob([u8]).stream().pipeThrough(new DecompressionStream('deflate'));
+      return new Response(stream).arrayBuffer().then(function (b) { return new Uint8Array(b); }, function () { return null; });
+    } catch (e) { return Promise.resolve(null); }
+  }
+  function readPng(u8, out) {
+    var i = 8, d = view(u8), jobs = [];
+    function entry(key, value) {
+      if (key === 'XML:com.adobe.xmp') readXmp(value, out);
+      else if (PNG_KEYS[key.toLowerCase()]) put(out, PNG_KEYS[key.toLowerCase()], value);
+    }
+    while (i + 8 <= u8.length) {
+      var size = d.getUint32(i), kind = text(u8.subarray(i + 4, i + 8), 'latin1'), body = u8.subarray(i + 8, i + 8 + size);
+      i += 12 + size;
+      var z = body.indexOf(0);
+      if (kind === 'eXIf') { readTiff(body, out); continue; }
+      if (z < 0 || (kind !== 'tEXt' && kind !== 'zTXt' && kind !== 'iTXt')) continue;
+      var key = text(body.subarray(0, z), 'latin1'), rest = body.subarray(z + 1);
+      if (kind === 'tEXt') entry(key, text(rest, 'latin1'));
+      else if (kind === 'zTXt') (function (k, r) { jobs.push(inflate(r.subarray(1)).then(function (b) { if (b) entry(k, text(b, 'latin1')); })); })(key, rest);
+      else {
+        var packed = rest[0] === 1; rest = rest.subarray(2);
+        rest = rest.subarray(rest.indexOf(0) + 1); rest = rest.subarray(rest.indexOf(0) + 1);
+        if (packed) (function (k, r) { jobs.push(inflate(r).then(function (b) { if (b) entry(k, text(b)); })); })(key, rest);
+        else entry(key, text(rest));
+      }
+    }
+    return Promise.all(jobs);
+  }
+  function readWebp(u8, out) {
+    var i = 12, d = view(u8);
+    while (i + 8 <= u8.length) {
+      var kind = text(u8.subarray(i, i + 4), 'latin1'), size = d.getUint32(i + 4, true), body = u8.subarray(i + 8, i + 8 + size);
+      if (kind === 'EXIF') readTiff(text(body.subarray(0, 6), 'latin1') === 'Exif\u0000\u0000' ? body.subarray(6) : body, out);
+      else if (kind === 'XMP ') readXmp(text(body), out);
+      i += 8 + size + (size % 2);
+    }
+  }
+  function readEmbedded(file) {
+    return file.slice(0, 8 * 1024 * 1024).arrayBuffer().then(function (buf) {
+      var u8 = new Uint8Array(buf), out = {}, job = null;
+      try {
+        if (u8[0] === 0xFF && u8[1] === 0xD8) readJpeg(u8, out);
+        else if (u8[0] === 0x89 && u8[1] === 0x50 && u8[2] === 0x4E && u8[3] === 0x47) job = readPng(u8, out);
+        else if (text(u8.subarray(0, 4), 'latin1') === 'RIFF' && text(u8.subarray(8, 12), 'latin1') === 'WEBP') readWebp(u8, out);
+      } catch (e) { /* a damaged file gives no leads */ }
+      return Promise.resolve(job).then(function () {
+        if (!Object.keys(out).length) { try { readXmpAnywhere(u8, out); } catch (e) { /* ignore */ } }
+        return out;
+      }, function () { return out; });
+    }).catch(function () { return {}; });
+  }
+
+  /* File names that match how a picture site names its downloads. A match is a lead, not proof. */
+  var NAME_HINTS = [
+    [/^\d{2,4}px-/i, 'Wikimedia Commons'], [/unsplash/i, 'Unsplash'], [/pexels/i, 'Pexels'], [/pixabay/i, 'Pixabay'],
+    [/istock/i, 'iStock'], [/shutterstock/i, 'Shutterstock'], [/gettyimages/i, 'Getty Images'], [/adobestock/i, 'Adobe Stock'],
+    [/depositphotos/i, 'Depositphotos'], [/dreamstime/i, 'Dreamstime'], [/freepik/i, 'Freepik'], [/flickr/i, 'Flickr']
+  ];
+  function nameHints(path) {
+    var base = String(path || '').split('/').pop();
+    return NAME_HINTS.filter(function (h) { return h[0].test(base); }).map(function (h) { return h[1]; });
+  }
+
+  /* ---- Turn whatever was in a file into clean rows. Unknown fields are kept so nothing is lost on save. ---- */
   function readData(d) {
     var list = Array.isArray(d) ? d : (d && Array.isArray(d.photos) ? d.photos : null);
     if (!list) throw new Error('no photos list');
@@ -147,7 +369,6 @@ button, input { font: inherit; color: inherit; }
     });
     return { photos: photos, extra: extra };
   }
-
   function clean(p) {
     var out = {};
     ['file', 'title', 'credit', 'source', 'license', 'link'].forEach(function (k) { out[k] = String(p[k] || '').trim(); });
@@ -158,7 +379,6 @@ button, input { font: inherit; color: inherit; }
     if (p.skip) out.skip = true;
     return out;
   }
-
   function exportData() {
     var photos = state.photos.filter(function (p) { return String(p.file || '').trim(); }).map(clean);
     var data = { note: NOTE };
@@ -171,10 +391,7 @@ button, input { font: inherit; color: inherit; }
     clearTimeout(draftTimer); draftTimer = null;
     try { localStorage.setItem(DRAFT_KEY, JSON.stringify(exportData())); } catch (e) { /* storage may be off; the editor still works */ }
   }
-  function saveDraft() {
-    clearTimeout(draftTimer);
-    draftTimer = setTimeout(writeDraft, 300);
-  }
+  function saveDraft() { clearTimeout(draftTimer); draftTimer = setTimeout(writeDraft, 300); }
   /* Do not lose the last few keystrokes if the tab is closed or hidden before the timer fires. */
   function flushDraft() { if (draftTimer) writeDraft(); }
   window.addEventListener('pagehide', flushDraft);
@@ -193,8 +410,9 @@ button, input { font: inherit; color: inherit; }
   function changed() { state.dirty = true; saveDraft(); updateCount(); }
 
   function matches(p) {
-    if (state.filter === 'todo' && isDone(p)) return false;
-    if (state.filter === 'done' && !isDone(p)) return false;
+    var s = status(p);
+    if (state.filter === 'todo' && s === 'done') return false;
+    if (state.filter === 'done' && s !== 'done') return false;
     if (state.query) {
       var hay = (p.file + ' ' + p.title + ' ' + p.credit + ' ' + p.source).toLowerCase();
       if (hay.indexOf(state.query) === -1) return false;
@@ -203,20 +421,92 @@ button, input { font: inherit; color: inherit; }
   }
 
   function updateCount() {
-    var total = state.photos.length, done = state.photos.filter(isDone).length;
-    $('count').textContent = total ? done + ' of ' + total + ' done, ' + (total - done) + ' still need a credit' : '';
+    var n = { done: 0, partial: 0, todo: 0 };
+    state.photos.forEach(function (p) { n[status(p)]++; });
+    $('count').textContent = state.photos.length ? n.done + ' complete, ' + n.partial + ' incomplete, ' + n.todo + ' with no credit' : '';
   }
 
   function paintRow(el, p) {
-    el.classList.toggle('done', isDone(p));
+    var s = status(p);
+    el.classList.toggle('done', s === 'done');
+    el.classList.toggle('partial', s === 'partial');
     el.classList.toggle('missing', !!p._missing);
     var link = el.querySelector('input[data-key="link"]');
     if (link) link.classList.toggle('badlink', badLink(p));
+    var box = el.querySelector('.state');
+    if (!box) return;
+    box.textContent = '';
+    var b = document.createElement('b');
+    b.textContent = p.skip ? 'No credit needed.' : s === 'done' ? 'Complete.' : s === 'todo' ? 'No credit yet.' : 'Incomplete: ' + problems(p).join('; ') + '.';
+    box.appendChild(b);
+    if (!p.skip && String(p.credit || '').trim()) {
+      var r = document.createElement('span');
+      r.className = 'reads';
+      r.textContent = '  Reads as: Photo: ' + p.credit.trim() + (p.source.trim() ? ', ' + p.source.trim() : '') + (p.license.trim() ? ' (' + p.license.trim() + ')' : '');
+      box.appendChild(r);
+    }
+  }
+
+  var LEAD_LABELS = { artist: 'Author', credit: 'Credit line', copyright: 'Copyright', title: 'Title', description: 'Description', source: 'Source', license: 'Usage terms', license_link: 'License link', source_link: 'Source link' };
+  var LEAD_TARGET = { artist: 'credit', credit: 'credit', copyright: 'credit', title: 'title', description: 'title', source: 'source', license: 'license', license_link: 'license', source_link: 'link' };
+  var TARGET_NAME = { credit: 'credit', title: 'title', source: 'source', license: 'license', link: 'link' };
+
+  function paintLeads(el, p) {
+    var old = el.querySelector('.leads');
+    if (old) old.remove();
+    var found = p._leads || {}, hints = p._hints || [];
+    var keys = Object.keys(LEAD_LABELS).filter(function (k) { return found[k]; });
+    if (!keys.length && !hints.length) return;
+    var box = document.createElement('div');
+    box.className = 'leads';
+    var h = document.createElement('h3');
+    h.textContent = 'Leads for this picture';
+    box.appendChild(h);
+    var ul = document.createElement('ul');
+    keys.forEach(function (k) {
+      var li = document.createElement('li');
+      var what = document.createElement('span'); what.className = 'what'; what.textContent = LEAD_LABELS[k] + ' stored in the file:';
+      var val = document.createElement('span'); val.className = 'val'; val.textContent = found[k];
+      var use = document.createElement('button');
+      use.type = 'button'; use.className = 'use';
+      var target = LEAD_TARGET[k];
+      use.textContent = 'Use as ' + TARGET_NAME[target];
+      use.addEventListener('click', function () {
+        var v = k === 'license_link' ? licenseName(found[k]) : found[k];
+        p[target] = v;
+        var input = el.querySelector('input[data-key="' + target + '"]');
+        if (input) input.value = v;
+        paintRow(el, p); changed();
+      });
+      li.appendChild(what); li.appendChild(val); li.appendChild(use);
+      ul.appendChild(li);
+    });
+    hints.forEach(function (site) {
+      var li = document.createElement('li');
+      var t = document.createElement('span');
+      t.textContent = 'The file name matches how ' + site + ' names its files. Look there for the author and license.';
+      li.appendChild(t);
+      if (site === 'Wikimedia Commons') {
+        var name = String(p.file).split('/').pop().replace(/^\d{2,4}px-/i, '');
+        var a = document.createElement('a');
+        a.href = 'https://commons.wikimedia.org/wiki/File:' + encodeURIComponent(name);
+        a.target = '_blank'; a.rel = 'noopener noreferrer';
+        a.textContent = 'Open the Wikimedia Commons page';
+        li.appendChild(a);
+      }
+      ul.appendChild(li);
+    });
+    box.appendChild(ul);
+    var note = document.createElement('p');
+    note.textContent = 'Leads are evidence, not proof. Use one only if you know it is right.';
+    box.appendChild(note);
+    el.insertBefore(box, el.querySelector('.state'));
   }
 
   function buildRow(p) {
     var el = document.createElement('article');
     el.className = 'row';
+    p._el = el;
 
     var thumb = document.createElement('div');
     thumb.className = 'thumb';
@@ -233,7 +523,6 @@ button, input { font: inherit; color: inherit; }
     fields.className = 'fields';
     FIELDS.forEach(function (f) {
       var label = document.createElement('label');
-      if (f.wide) label.className = 'wide';
       label.appendChild(document.createTextNode(f.label));
       var input = document.createElement('input');
       input.type = 'text'; input.value = p[f.key] || ''; input.placeholder = f.hint || '';
@@ -245,6 +534,10 @@ button, input { font: inherit; color: inherit; }
       fields.appendChild(label);
     });
     el.appendChild(fields);
+
+    var st = document.createElement('div');
+    st.className = 'state';
+    el.appendChild(st);
 
     var foot = document.createElement('div');
     foot.className = 'foot';
@@ -268,12 +561,14 @@ button, input { font: inherit; color: inherit; }
     el.appendChild(foot);
 
     paintRow(el, p);
+    paintLeads(el, p);
     return el;
   }
 
   function render() {
     var box = $('rows');
     box.textContent = '';
+    state.photos.forEach(function (p) { p._el = null; });
     var shown = state.photos.filter(matches);
     if (!state.photos.length) {
       var e = document.createElement('div');
@@ -294,8 +589,8 @@ button, input { font: inherit; color: inherit; }
   }
 
   /* ---- Open an existing photo-credits.json ---- */
-  function openText(text) {
-    var d = readData(JSON.parse(text));
+  function openText(t) {
+    var d = readData(JSON.parse(t));
     state.photos = d.photos; state.extra = d.extra; state.folder = false;
   }
   $('btnOpen').addEventListener('click', function () { $('inOpen').click(); });
@@ -306,13 +601,13 @@ button, input { font: inherit; color: inherit; }
       try {
         openText(t);
         state.dirty = false; saveDraft(); render();
-        say('Opened ' + f.name + ' with ' + state.photos.length + ' pictures.');
+        say('Opened ' + f.name + ' with ' + state.photos.length + ' pictures. Choose your site folder to see previews and leads.');
       } catch (x) { say('That file could not be read as a photo credits file.', 'bad'); }
       e.target.value = '';
     });
   });
 
-  /* ---- Choose the site folder: list every picture, show previews, flag what is missing ---- */
+  /* ---- Choose the site folder: list every picture, show previews, flag what is missing, gather leads ---- */
   function relPath(f) { return String(f.webkitRelativePath || f.name).split('/').slice(1).join('/') || f.name; }
   function hidden(path) { return path.split('/').some(function (s) { return s.charAt(0) === '.' || s === 'node_modules'; }); }
 
@@ -329,7 +624,7 @@ button, input { font: inherit; color: inherit; }
     });
     var used = {}, missing = 0, known = 0;
     state.photos.forEach(function (p) {
-      p._new = false;
+      p._new = false; p._file = null; p._leads = null; p._hints = nameHints(p.file);
       var k = normPath(p.file);
       if (!k) return;
       var hit = images[k] ? k : (byStem[stem(k)] || null);
@@ -341,17 +636,36 @@ button, input { font: inherit; color: inherit; }
           if (os.slice(-(ks.length + 1)) === '/' + ks || ks.slice(-(os.length + 1)) === '/' + os) hit = order[i];
         }
       }
-      if (hit) { used[stem(hit)] = true; known++; p._missing = false; p._thumb = URL.createObjectURL(images[hit].file); }
+      if (hit) { used[stem(hit)] = true; known++; p._missing = false; p._file = images[hit].file; p._thumb = URL.createObjectURL(images[hit].file); }
       else { missing++; p._missing = true; p._thumb = null; }
     });
     var added = 0;
     order.forEach(function (k) {
       if (used[stem(k)]) return;
       var row = blank(images[k].rel);
-      row._new = true; row._thumb = URL.createObjectURL(images[k].file);
+      row._new = true; row._file = images[k].file; row._hints = nameHints(row.file); row._thumb = URL.createObjectURL(images[k].file);
       state.photos.push(row); added++;
     });
     return { total: order.length, added: added, known: known, missing: missing };
+  }
+
+  /* Read what is stored inside each picture that still needs work, a few files at a time. */
+  function gatherLeads() {
+    var queue = state.photos.filter(function (p) { return p._file && status(p) !== 'done'; });
+    var total = queue.length, withLeads = 0, running = 0;
+    return new Promise(function (resolve) {
+      if (!total) return resolve(0);
+      function next() {
+        if (!queue.length) { if (!running) resolve(withLeads); return; }
+        var p = queue.shift(); running++;
+        readEmbedded(p._file).then(function (found) {
+          p._leads = found;
+          if (Object.keys(found).length || (p._hints || []).length) withLeads++;
+          if (p._el) paintLeads(p._el, p);
+        }).then(function () { running--; next(); });
+      }
+      for (var i = 0; i < 4; i++) next();
+    });
   }
 
   $('btnFolder').addEventListener('click', function () { $('inFolder').click(); });
@@ -362,10 +676,10 @@ button, input { font: inherit; color: inherit; }
     var manifest = null;
     files.forEach(function (f) { if (relPath(f).toLowerCase() === 'photo-credits.json') manifest = f; });
     var loadedManifest = false;
-    var next = (!state.photos.length && manifest)
+    var first = (!state.photos.length && manifest)
       ? manifest.text().then(function (t) { try { openText(t); loadedManifest = true; } catch (x) { /* fall through with an empty list */ } })
       : Promise.resolve();
-    next.then(function () {
+    first.then(function () {
       state.folder = true;
       var r = mergeFolder(files);
       if (r.added) state.dirty = true;
@@ -373,9 +687,13 @@ button, input { font: inherit; color: inherit; }
       var msg = 'Found ' + r.total + ' pictures in the folder: ' + r.added + ' new, ' + r.known + ' already listed' +
         (r.missing ? ', ' + r.missing + ' listed but not found' : '') + '.' +
         (loadedManifest ? ' Loaded the photo-credits.json found there.' : '');
-      if (!hasIndex) say(msg + ' This folder has no index page at its top level. If file paths look wrong, choose the top folder of your site instead.', 'warn');
-      else say(msg, r.missing ? 'warn' : '');
+      var kind = r.missing ? 'warn' : '';
+      if (!hasIndex) { msg += ' This folder has no index page at its top level. If file paths look wrong, choose the top folder of your site instead.'; kind = 'warn'; }
+      say(msg + ' Reading the picture files for leads...', kind);
       e.target.value = '';
+      return gatherLeads().then(function (n) {
+        say(msg + ' ' + (n ? 'Leads found for ' + n + (n === 1 ? ' picture' : ' pictures') + ' that still need work.' : 'No leads found in the picture files.'), kind);
+      });
     });
   });
 
@@ -413,17 +731,19 @@ button, input { font: inherit; color: inherit; }
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
     state.dirty = false;
-    var todo = data.photos.filter(function (p) { return !isDone(p); }).length;
+    var todo = data.photos.filter(function (p) { return status(p) === 'todo'; }).length;
+    var part = data.photos.filter(function (p) { return status(p) === 'partial'; }).length;
     var bad = data.photos.filter(badLink).length;
     var msg = 'Downloaded photo-credits.json with ' + data.photos.length + ' pictures. Put it in the top folder of your site.';
-    if (todo) msg += ' ' + todo + ' still need a credit.';
+    if (todo) msg += ' ' + todo + ' still have no credit.';
+    if (part) msg += ' ' + part + (part === 1 ? ' is' : ' are') + ' credited but incomplete.';
     if (bad) msg += ' ' + bad + ' link' + (bad === 1 ? ' does' : 's do') + ' not start with http:// or https:// and will not be shown.';
-    say(msg, bad ? 'warn' : '');
+    say(msg, (todo || part || bad) ? 'warn' : '');
   });
 
   window.addEventListener('beforeunload', function (e) { if (state.dirty) { e.preventDefault(); e.returnValue = ''; } });
 
-  if (loadDraft()) say('Picked up where you left off. Choose your site folder again to see previews.');
+  if (loadDraft()) say('Picked up where you left off. Choose your site folder again to see previews and leads.');
   render();
 })();
 </script>

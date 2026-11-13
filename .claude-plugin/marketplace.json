@@ -7,9 +7,9 @@
   },
   "plugins": [
     {
-      "name": "firelands-photo-credits",
+      "name": "photo-credit-editor",
       "source": "./",
-      "description": "Find every picture on a website, record who made it and where it came from, and show credit lines and a credits page."
+      "description": "Make sure every picture on a website carries a proper credit: find the ones without, work out who made each and under what license, write the attribution, and show it on the site."
     }
   ]
 }

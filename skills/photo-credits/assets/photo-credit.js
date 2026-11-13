@@ -86,6 +86,15 @@
   }
 
   function line(p) { return p.credit + (p.source ? ', ' + p.source : ''); }
+  /* The page for a Creative Commons license, worked out from its name, so the license can be linked as the license asks. */
+  function licenseUrl(p) {
+    if (/^https?:\/\//i.test(p.licenseUrl || '')) return p.licenseUrl;
+    var name = String(p.license || '');
+    var m = /\bcc[ -]?(by(?:-(?:nc|nd|sa))*)[ -]?(\d\.\d)/i.exec(name);
+    if (m) return 'https://creativecommons.org/licenses/' + m[1].toLowerCase() + '/' + m[2] + '/';
+    if (/\bcc0\b/i.test(name)) return 'https://creativecommons.org/publicdomain/zero/1.0/';
+    return '';
+  }
   function shown(p) { return p && !p.skip && String(p.credit || '').trim(); }
 
   function addStyle() {
@@ -126,7 +135,15 @@
       if (p.license) {
         var lic = document.createElement('p');
         lic.className = 'photo-credit-license';
-        lic.textContent = p.license;
+        var deed = licenseUrl(p);
+        if (deed) {
+          var la = document.createElement('a');
+          la.href = deed; la.target = '_blank'; la.rel = 'license noopener noreferrer';
+          la.textContent = p.license;
+          lic.appendChild(la);
+        } else {
+          lic.textContent = p.license;
+        }
         item.appendChild(lic);
       }
       if (/^https?:\/\//i.test(p.link || '')) {

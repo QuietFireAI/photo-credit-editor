@@ -1,10 +1,12 @@
-# Photo Credits: User Guide
+# Photo Credit Editor: User Guide
 
-This guide covers everything in the plugin: the credits file, the editor, the site script, the scanner, and how Claude uses them.
+This guide covers everything in the plugin: how it finds the right credit for a picture, what a proper credit needs, the credits file, the editor, the site script, the scanner, and how Claude uses them.
 
 - [The idea](#the-idea)
 - [Install](#install)
 - [Use it with Claude](#use-it-with-claude)
+- [Leads](#leads)
+- [What a proper credit needs](#what-a-proper-credit-needs)
 - [The credits file](#the-credits-file)
 - [The editor](#the-editor)
 - [Showing credits on your site](#showing-credits-on-your-site)
@@ -14,23 +16,25 @@ This guide covers everything in the plugin: the credits file, the editor, the si
 
 ## The idea
 
-One file, `photo-credits.json`, sits in the top folder of your website and lists every picture with who made it and where it came from. Three tools work from that file:
+The aim is that every picture on your site ends up with a proper credit: who made it, where it came from, and the license or permission you use it under.
 
-- the **editor**, where you type the credits,
-- the **site script**, which shows them to visitors,
-- the **scanner**, which finds pictures that are missing from the file or still blank.
+One file, `photo-credits.json`, sits in the top folder of your website and holds that for every picture. Three tools work from it:
 
-The skill tells Claude how to run all three for you, and never to make up a credit.
+- the **scanner**, which finds every picture, says which are complete, and gathers leads for the rest,
+- the **editor**, where you fill in credits with those leads in front of you,
+- the **site script**, which shows the credits to visitors.
+
+The skill tells Claude how to use all three to get each picture to a proper credit, and never to make one up.
 
 ## Install
 
-**In Claude (claude.ai or the desktop app):** open Customize, then Plugins, and add Photo Credits from the directory. Before it is listed there, choose Add, then Add marketplace, and enter `https://github.com/QuietFireAI/photo-credit-editor`.
+**In Claude (claude.ai or the desktop app):** open Customize, then Plugins, and add Photo Credit Editor from the directory. Before it is listed there, choose Add, then Add marketplace, and enter `https://github.com/QuietFireAI/photo-credit-editor`.
 
 **In Claude Code:**
 
 ```bash
 claude plugin marketplace add QuietFireAI/photo-credit-editor
-claude plugin install firelands-photo-credits@firelands-ai
+claude plugin install photo-credit-editor@firelands-ai
 ```
 
 **Without Claude:** the editor, the site script and the scanner are ordinary files in `skills/photo-credits/`. Download them and use them directly.
@@ -41,21 +45,58 @@ Give Claude access to your website folder, then ask in plain words:
 
 | You say | Claude does |
 | --- | --- |
-| "Which pictures on my site have no photo credit?" | Scans the folder and lists the pictures that are blank or missing from the file |
-| "Set up photo credits for this site." | Creates `photo-credits.json` with an entry for every picture, then asks you for the credits |
+| "Which pictures on my site still need a proper credit?" | Scans the folder, lists the pictures that are blank or incomplete, and shows the leads it found for each |
+| "Work out the credits for these." | Follows the leads to source pages where it can, then shows a table of proposed credits with the evidence for each value, for you to confirm |
 | "The mill photo is by Jane Doe, from the County Historical Society, used with permission." | Writes exactly that into the entry |
 | "This one came from this page: (address)" | Reads the page, shows you the author and license it found, and writes them after you confirm |
 | "Add a photo credits page and captions." | Adds the site script and a credits list to your pages |
-| "Check the photo credits before we launch." | Runs the check and lists anything still blank |
+| "Check the photo credits before we launch." | Runs the check and lists anything still blank or incomplete |
 | "Give me the editor." | Hands you the editor file to fill in credits yourself |
 
-Claude fills a field only from what you tell it or from a source page you point it to. Anything it does not know stays blank and is reported as blank.
+Claude writes a value only when you stated it or confirmed it. For a picture nobody can trace, it says so and leaves it blank, and tells you the options: find the source, replace the picture, or remove it.
+
+## Leads
+
+A lead is a fact that helps find the right credit. The scanner and the editor both gather three kinds:
+
+| Lead | Where it comes from | How much to trust it |
+| --- | --- | --- |
+| Inside the file | Author, copyright, credit line, title, source, license link and source link that cameras, phones and editing programs store in a picture file | Good evidence of who made the picture. Not evidence that you may use it |
+| On the page | The alt text and caption where the picture is used on your site | Weak. It often describes the subject, not the maker |
+| File name | A name that matches how a picture site names its downloads, such as a size prefix like `640px-` used by Wikimedia Commons, or a site's name in the file name | A pointer to where to look. Not proof |
+
+Leads are never written into the credits file automatically. In the editor each one has a **Use** button. With Claude, each one appears as evidence beside a proposed value.
+
+Many pictures carry nothing inside the file, because websites and messaging apps often remove it. For those, you have to say where the picture came from.
+
+## What a proper credit needs
+
+| The entry has | Status |
+| --- | --- |
+| "No credit needed" ticked (logo, icon, your own graphic) | No credit needed |
+| No credit | No credit |
+| A credit, but no license or permission | Incomplete |
+| A Creative Commons license without a link to the source page, or without a version number | Incomplete |
+| A Creative Commons license of version 3.0 or earlier without a title | Incomplete |
+| A credit and everything its license calls for | Complete |
+
+The Creative Commons rows follow [Creative Commons' guidance on attribution](https://wiki.creativecommons.org/wiki/Recommended_practices_for_attribution): credit the author, link to the source, and name the license, with the title required for versions 3.0 and earlier.
+
+Common values for the license field:
+
+| You | Write |
+| --- | --- |
+| Took the picture yourself | `Own work` |
+| Were given it by its owner, who agreed to its use | `Used with permission` |
+| Know it is out of copyright | `Public domain` |
+| Found it under a Creative Commons license | The license with its version, such as `CC BY-SA 4.0` |
+| Bought or downloaded it from a stock library | The name of that library's license |
 
 ## The credits file
 
 ```json
 {
- "note": "Edit with the Photo Credits Editor. One entry per picture.",
+ "note": "Edit with the Photo Credit Editor. One entry per picture.",
  "photos": [
   {
    "file": "images/gallery/mill.jpg",
@@ -75,7 +116,7 @@ Claude fills a field only from what you tell it or from a source page you point 
 | `title` | What the picture shows. Used as the heading on the credits page |
 | `credit` | The photographer or owner. A picture with a blank credit is not shown anywhere |
 | `source` | Where the picture came from, such as a collection or website |
-| `license` | The license or permission, such as "CC BY-SA 4.0", "Own work" or "Used with permission" |
+| `license` | The license or permission |
 | `link` | Address of the source page. Shown only if it starts with `http://` or `https://` |
 | `skip` | Set to `true` for a picture that needs no credit, such as a logo or icon |
 
@@ -83,12 +124,14 @@ The file type is ignored when matching, so one entry for `mill.jpg` also covers 
 
 ## The editor
 
-`skills/photo-credits/assets/photo-credits-editor.html` is a single file. Open it in a web browser. It needs no internet connection and sends nothing anywhere.
+`skills/photo-credits/assets/photo-credits-editor.html` is a single file. Open it in a web browser. It needs no internet connection and uploads nothing.
 
 1. Click **Choose site folder** and pick the top folder of your site, the one that holds the home page. The editor lists every picture with a preview. If the folder already has a `photo-credits.json`, it is loaded.
-2. Fill in the fields. Tick **No credit needed** for logos, icons and graphics you made yourself.
-3. Use **Needs a credit** to see only what is left.
-4. Click **Download photo-credits.json** and put the file in the top folder of your site.
+2. The editor reads each picture file that still needs work. Where it finds an author, copyright, title or license, a **Leads for this picture** box appears with a **Use** button beside each. Use a lead only if you know it is right.
+3. Fill in the rest. Under each picture the editor says **Complete**, **No credit yet**, or **Incomplete** with what is missing, and shows how the credit will read.
+4. Tick **No credit needed** for logos, icons and graphics you made yourself.
+5. Use **Needs work** to see only what is left.
+6. Click **Download photo-credits.json** and put the file in the top folder of your site.
 
 Other buttons: **Open photo-credits.json** loads an existing file without choosing a folder, and **Add a picture** adds an entry by hand.
 
@@ -124,6 +167,8 @@ For a credits page, add an empty element for the list:
 | `data-empty` | Text shown when no picture has a credit yet | a short placeholder |
 | `data-style` | `off` to skip the built-in caption styling | on |
 
+On the credits page each entry shows its title, the credit and source, the license, and a link to the source page. A Creative Commons license is shown as a link to its license page.
+
 Captions use the classes `photo-credit` and `photo-credit-inline`. The built-in styling has the lowest priority, so any rule in your own stylesheet overrides it.
 
 A working example is in [`examples/sample-site`](../examples/sample-site).
@@ -135,8 +180,8 @@ A working example is in [`examples/sample-site`](../examples/sample-site).
 ```bash
 python3 scan_photos.py SITE_FOLDER            # report only, changes nothing
 python3 scan_photos.py SITE_FOLDER --write    # add a blank entry for each unlisted picture
-python3 scan_photos.py SITE_FOLDER --check    # exit status 1 if any picture lacks a credit
-python3 scan_photos.py SITE_FOLDER --json     # the report as JSON
+python3 scan_photos.py SITE_FOLDER --check    # exit status 1 unless every picture is complete
+python3 scan_photos.py SITE_FOLDER --json     # the report as JSON, leads included
 ```
 
 | Option | Use |
@@ -145,12 +190,15 @@ python3 scan_photos.py SITE_FOLDER --json     # the report as JSON
 | `--exclude GLOB` | Leave out pictures whose path matches, such as `--exclude "icons/*"`. Repeatable |
 | `--min-kb N` | Leave out pictures smaller than N kilobytes |
 
-With `--write`, existing entries are never changed or removed. New blank entries are added at the end.
+The report gives a status for every picture and, for each one that is not complete, what is missing and the leads it found. With `--write`, existing entries are never changed or removed, and no credit is ever written from a lead.
 
 It looks at `.jpg`, `.jpeg`, `.png`, `.webp`, `.gif` and `.avif` files, and skips hidden folders and `node_modules`.
 
 ## Troubleshooting
 
+- **A picture is marked incomplete.** It has a credit but lacks something its license calls for. The scan and the editor both say what is missing.
+- **No leads were found.** The picture file carries no author or copyright inside it and its name matches no known site. Say where it came from, or ask whoever supplied it.
+- **A lead looks wrong.** Do not use it. Information stored in a file can be out of date or belong to an editing program. It is evidence, not proof.
 - **Captions or the credits list do not appear when I open a page from my computer.** The site script loads `photo-credits.json` over the web, and browsers block that for pages opened straight from disk. Check on the live site or through a local web server.
 - **Credits show on the home page but not on pages in subfolders.** Those pages need the path back to the file, for example `data-manifest="../photo-credits.json"`.
 - **I uploaded a new `photo-credits.json` and the site still shows the old credits.** Browsers may keep the old copy for up to an hour. Reload the page with the cache cleared to see it sooner.
@@ -164,7 +212,9 @@ Still stuck? See [SUPPORT.md](../SUPPORT.md).
 
 ## Limits
 
-- The plugin records credits. It does not check whether you are allowed to use a picture, and it is not legal advice.
+- The plugin finds, completes and records credits. It does not check whether you are allowed to use a picture, and it is not legal advice.
+- It cannot recognise a picture by its content. Finding the source of a picture that has no leads needs either your knowledge or a search by image, which the plugin does not do itself.
+- The completeness rules know Creative Commons licenses. For any other license, an entry counts as complete once it has a credit and a license or permission; check that license's own terms for anything more it asks for.
 - Slideshows that move slides sideways need `data-active`, because the script cannot see which slide is on show otherwise.
-- Pictures loaded from another website, such as a photo service, are not in your site folder, so the scanner and the editor do not list them. You can add them by hand.
+- Pictures loaded from another website are not in your site folder, so the scanner and the editor do not list them. You can add them by hand.
 - SVG files and icons in `.ico` format are not treated as pictures.

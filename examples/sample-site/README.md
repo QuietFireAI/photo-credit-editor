@@ -1,8 +1,14 @@
 # Sample site
 
-A three-picture website for trying the Photo Credits plugin and for checking changes to it. Two pictures have a credit. One, the town-park picture, is deliberately blank.
+A three-picture website for trying the Photo Credit Editor and for checking changes to it. Each picture is in a different state on purpose:
 
-The three pictures were made for this example and are covered by the repository's MIT License.
+| Picture | State | Why |
+| --- | --- | --- |
+| Hills at midday | Complete | Credit, source, license and link are all recorded |
+| Hills at dusk | Credited but incomplete | It has a credit but no license or permission |
+| Hills and a lake | No credit | The credit is blank, but the picture file carries an author and a copyright line inside it |
+
+The three pictures were made for this example and are covered by the repository's MIT License. "Pat Example" is a made-up name stored in the third picture to show how leads work.
 
 ## See it in a browser
 
@@ -20,14 +26,18 @@ Then open `http://localhost:8000/examples/sample-site/`. The slideshow shows a c
 python3 skills/photo-credits/scripts/scan_photos.py examples/sample-site
 ```
 
-The scan reports 3 pictures found, 2 credited, and 1 listed with the credit still blank.
+The scan reports 3 pictures found: 1 complete, 1 credited but incomplete, and 1 with no credit. For the last one it lists the author and copyright stored inside the file and the alt text from the page.
+
+## Try the editor
+
+Open `skills/photo-credits/assets/photo-credits-editor.html` in a browser, click **Choose site folder**, and pick this folder. The third picture shows a "Leads for this picture" box with the author stored in the file and a **Use as credit** button.
 
 ## Try it with Claude
 
 With the plugin installed and this folder available to Claude, try:
 
-1. "Which pictures in examples/sample-site have no photo credit?"
-2. "The town-park picture was taken by Pat Example and is used with permission. Add that credit."
+1. "Which pictures in examples/sample-site still need a proper credit, and what can you find out about them?"
+2. "Pat Example took the lake picture and said we can use it. Old mill is our own work."
 3. "Check the photo credits in examples/sample-site before launch."
 
-Expected: Claude names the town-park picture as the one blank picture, writes only the credit you gave it, and the last check then passes.
+Expected: Claude reports one incomplete and one uncredited picture, shows the author it found inside the lake picture and asks you to confirm it, writes only what you confirm, and the last check then passes.

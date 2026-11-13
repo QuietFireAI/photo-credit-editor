@@ -1,6 +1,6 @@
 # Terms of Use
 
-**Photo Credits** is published by Firelands AI. Last updated: November 12, 2026.
+**Photo Credit Editor** is published by Firelands AI. Last updated: November 12, 2026.
 
 ## License
 
