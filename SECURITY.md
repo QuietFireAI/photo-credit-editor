@@ -14,6 +14,7 @@ The latest release on the `main` branch is supported.
 - The site script loads one file, `photo-credits.json`, from the same website it runs on.
 - Text from `photo-credits.json` is always inserted into pages as plain text, never as HTML. Links are shown only when they start with `http://` or `https://`.
 - Text read from inside picture files is treated the same way: shown as plain text, never as HTML.
+- The skill tells Claude to treat text found inside picture files, on pages and on source sites as information only, never as instructions.
 - Picture files are read defensively. A damaged or hostile file yields no leads and cannot stop a scan.
 - No hooks, no MCP servers, no dependencies, no credentials, no minified or compiled code.
 - The scanner writes one file, `photo-credits.json`, and only when run with `--write`.
