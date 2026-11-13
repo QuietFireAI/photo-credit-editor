@@ -11,6 +11,13 @@ The plugin now works to get every picture a proper credit, instead of only listi
 - Editor: a leads box with a Use button per lead, a status line per picture, a preview of how the credit reads, and a Needs work filter.
 - Site script: Creative Commons licenses on the credits page link to their license pages.
 - Scanner: `--check` now fails on incomplete credits as well as blank ones.
+- Fixed, editor: choosing a site folder while the browser still held unsaved work from an earlier visit skipped the folder's own `photo-credits.json` and mixed the two lists. The editor now reads the folder's file and asks which list to use.
+- Fixed, editor: opening a file or clearing the list asks before replacing work, and Remove offers Undo.
+- Fixed, site script: a picture whose address is swapped in after the page loads now gets the right caption, and loses it if it changes to an uncredited picture.
+- Changed, site script: captions follow page changes instead of rechecking every one to two seconds.
+- Fixed, scanner: two pictures with the same file name in different folders no longer share each other's pages, alt text or captions.
+- Fixed: singular and plural wording in the scanner and the editor.
+- Sample site: picture files renamed to match what they show.
 
 ## 1.0.0 - 2026-11-12
 

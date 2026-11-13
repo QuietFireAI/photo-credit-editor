@@ -34,6 +34,7 @@ import argparse
 import fnmatch
 import json
 import os
+import posixpath
 import re
 import struct
 import sys
@@ -53,7 +54,7 @@ MAX_IMAGE_BYTES = 40 * 1024 * 1024
 NOTE = ("Edit with the Photo Credit Editor. One entry per picture. "
         "A picture with a blank credit stays off the credits page.")
 FIELDS = ("file", "title", "credit", "source", "license", "link")
-REF = re.compile(r"[^\s\"'()<>=,;:\\/?#]+\.(?:jpe?g|png|webp|gif|avif)", re.IGNORECASE)
+REF = re.compile(r"[^\s\"'()<>=,;\\?#]+\.(?:jpe?g|png|webp|gif|avif)", re.IGNORECASE)
 
 # File names that match how a picture site names its downloads. A match is a lead, not proof.
 NAME_HINTS = (
@@ -322,8 +323,7 @@ class _Page(HTMLParser):
         elif tag == "figcaption":
             self._caption = []
         elif tag == "img":
-            src = a.get("src") or a.get("data-src") or ""
-            name = os.path.basename(unquote(src.split("?")[0].split("#")[0])).lower()
+            name = (a.get("src") or a.get("data-src") or "").split("?")[0].split("#")[0].strip()
             if name:
                 alt = _clean(a.get("alt") or a.get("title") or "")
                 if self._figure is not None:
@@ -363,6 +363,10 @@ def stem(key):
     return os.path.splitext(key)[0]
 
 
+def count(n, word, width=0):
+    return "%*d %s%s" % (width, n, word, "" if n == 1 else "s")
+
+
 def natural(text):
     """Sort photo2 before photo10."""
     return [int(t) if t.isdigit() else t.lower() for t in re.split(r"(\d+)", text)]
@@ -385,7 +389,38 @@ def walk(site):
     return images, texts
 
 
-def read_site_text(texts, manifest_abs):
+class Pictures:
+    """Works out which picture an address written in a page, stylesheet or script points at."""
+
+    def __init__(self, images):
+        self.by_path = {}                                  # path without file type -> same
+        self.by_name = {}                                  # file name without type -> paths
+        for rel, _ in images:
+            key = stem(norm(rel))
+            self.by_path[key] = key
+            self.by_name.setdefault(posixpath.basename(key), set()).add(key)
+
+    def find(self, address, written_in, sure_only=False):
+        """The pictures an address may mean. With sure_only, an address that fits several pictures fits none."""
+        a = unquote(address).replace("\\", "/")
+        a = re.sub(r"^(?:[a-z][a-z0-9+.-]*:)?//[^/]*", "", a, flags=re.I)      # drop the site name, if any
+        tail = re.sub(r"^(?:\.\.?/)+", "", a.lstrip("/"))
+        tries = [a.lstrip("/")] if a.startswith("/") else [posixpath.join(posixpath.dirname(written_in), a), tail]
+        for t in tries:                                    # 1. the exact path, from the file or from the site's top folder
+            key = stem(norm(posixpath.normpath(t)))
+            if key in self.by_path:
+                return [key]
+        key = stem(norm(posixpath.normpath(tail)))
+        if "/" in key:                                     # 2. the end of a path
+            hits = [k for k in self.by_path if k.endswith("/" + key)]
+        else:                                              # 3. a bare file name
+            hits = sorted(self.by_name.get(key, ()))
+        if len(hits) == 1 or (hits and not sure_only):
+            return hits
+        return []
+
+
+def read_site_text(texts, manifest_abs, pictures):
     """Which site files mention each picture, and what the pages say about it."""
     refs, context = {}, {}
     for rel, full in texts:
@@ -399,9 +434,8 @@ def read_site_text(texts, manifest_abs):
         except OSError:
             continue
         for hit in set(REF.findall(body)):
-            name = unquote(hit).lower()
-            refs.setdefault(name, set()).add(rel)
-            refs.setdefault(os.path.splitext(name)[0] + ".*", set()).add(rel)
+            for key in pictures.find(hit, rel):
+                refs.setdefault(key, set()).add(rel)
         if os.path.splitext(rel)[1].lower() in HTML_EXT:
             page = _Page()
             try:
@@ -409,14 +443,17 @@ def read_site_text(texts, manifest_abs):
                 page.close()
             except Exception:                              # a badly broken page must not stop the scan
                 continue
-            for name, alt, caption in page.found:
-                if alt or caption:
-                    item = {"page": rel}
-                    if alt:
-                        item["alt"] = alt
-                    if caption:
-                        item["caption"] = caption
-                    bucket = context.setdefault(os.path.splitext(name)[0], [])
+            for address, alt, caption in page.found:
+                if not (alt or caption):
+                    continue
+                item = {"page": rel}
+                if alt:
+                    item["alt"] = alt
+                if caption:
+                    item["caption"] = caption
+                # Alt text and captions are leads, so they go only to the one picture the address surely means.
+                for key in pictures.find(address, rel, sure_only=True):
+                    bucket = context.setdefault(key, [])
                     if item not in bucket:
                         bucket.append(item)
     return refs, context
@@ -496,7 +533,7 @@ def main():
         return 2
 
     images, texts = walk(site)
-    refs, context = read_site_text(texts, manifest_path)
+    refs, context = read_site_text(texts, manifest_path, Pictures(images))
     full_path = dict(images)
 
     excluded = 0
@@ -532,15 +569,14 @@ def main():
         kept.append((named or members)[0])
 
     def used_on(rel):
-        name = os.path.basename(rel).lower()
-        return sorted(refs.get(name) or refs.get(os.path.splitext(name)[0] + ".*", ()))
+        return sorted(refs.get(stem(norm(rel)), ()))
 
     def leads(rel):
         found = {}
         embedded = read_embedded(full_path[rel])
         if embedded:
             found["inside_the_file"] = embedded
-        on_page = context.get(os.path.splitext(os.path.basename(rel).lower())[0])
+        on_page = context.get(stem(norm(rel)))
         if on_page:
             found["on_the_page"] = on_page
         hints = name_hints(rel)
@@ -613,10 +649,10 @@ def main():
     print()
     notes = []
     if files_found != len(kept):
-        notes.append("%d files; the same picture in two file types counts once" % files_found)
+        notes.append("%s; the same picture in two file types counts once" % count(files_found, "file"))
     if excluded:
         notes.append("%d more excluded" % excluded)
-    print("%5d pictures found%s" % (len(kept), (" (%s)" % "; ".join(notes)) if notes else ""))
+    print("%s found%s" % (count(len(kept), "picture", 5), (" (%s)" % "; ".join(notes)) if notes else ""))
     print("%5d complete" % len(complete))
     print("%5d credited but incomplete" % len(incomplete))
     print("%5d no credit" % len(blank))
@@ -624,7 +660,7 @@ def main():
     print("%5d marked no credit needed" % len(skipped))
     print("%5d listed, but the file is not in the folder" % len(missing_files))
     if added:
-        print("\nAdded %d blank entries to the manifest." % added)
+        print("\nAdded %s to the manifest." % count(added, "blank entry").replace("entrys", "entries"))
 
     def show(title, rows):
         if not rows:
@@ -662,7 +698,7 @@ def main():
         print("\nLeads are evidence to confirm, not credits. 'No mention found' means no page, stylesheet or "
               "script names that file; a script that builds file names in code can still load it.")
     print("\n%s" % ("Every picture has a complete credit or is marked no credit needed." if not need
-                    else "%d pictures still need work." % need))
+                    else "%s still %s work." % (count(need, "picture"), "needs" if need == 1 else "need")))
 
     return 1 if (args.check and need) else 0
 

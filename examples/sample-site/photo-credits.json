@@ -2,7 +2,7 @@
  "note": "Edit with the Photo Credit Editor. One entry per picture. A picture with a blank credit stays off the credits page.",
  "photos": [
   {
-   "file": "images/main-street.jpg",
+   "file": "images/hills-midday.jpg",
    "title": "Hills at midday",
    "credit": "Firelands AI",
    "source": "Sample picture made for this example",
@@ -10,7 +10,7 @@
    "link": "https://github.com/QuietFireAI/photo-credit-editor"
   },
   {
-   "file": "images/old-mill.jpg",
+   "file": "images/hills-dusk.jpg",
    "title": "Hills at dusk",
    "credit": "Firelands AI",
    "source": "",
@@ -18,7 +18,7 @@
    "link": ""
   },
   {
-   "file": "images/town-park.jpg",
+   "file": "images/hills-lake.jpg",
    "title": "",
    "credit": "",
    "source": "",

@@ -126,16 +126,18 @@ The file type is ignored when matching, so one entry for `mill.jpg` also covers 
 
 `skills/photo-credits/assets/photo-credits-editor.html` is a single file. Open it in a web browser. It needs no internet connection and uploads nothing.
 
-1. Click **Choose site folder** and pick the top folder of your site, the one that holds the home page. The editor lists every picture with a preview. If the folder already has a `photo-credits.json`, it is loaded.
+1. Click **Choose site folder** and pick the top folder of your site, the one that holds the home page. The editor lists every picture with a preview. If the folder already has a `photo-credits.json`, it is loaded. If the editor is already holding a different list, such as unsaved work from an earlier visit, it asks which one you want before changing anything.
 2. The editor reads each picture file that still needs work. Where it finds an author, copyright, title or license, a **Leads for this picture** box appears with a **Use** button beside each. Use a lead only if you know it is right.
 3. Fill in the rest. Under each picture the editor says **Complete**, **No credit yet**, or **Incomplete** with what is missing, and shows how the credit will read.
 4. Tick **No credit needed** for logos, icons and graphics you made yourself.
 5. Use **Needs work** to see only what is left.
 6. Click **Download photo-credits.json** and put the file in the top folder of your site.
 
-Other buttons: **Open photo-credits.json** loads an existing file without choosing a folder, and **Add a picture** adds an entry by hand.
+Other buttons: **Open photo-credits.json** loads an existing file without choosing a folder, and asks first if that would replace a list you are working on. **Add a picture** adds an entry by hand. **Remove** takes an entry out and offers **Undo**.
 
-Your browser will ask to confirm when you choose a folder. The files are read on your computer only. Unsaved work is kept in the browser, so closing the tab does not lose it.
+Your browser will ask to confirm when you choose a folder. The files are read on your computer only. Unsaved work is kept in the browser, so closing the tab does not lose it; the editor tells you when it has picked up work from an earlier visit.
+
+Choosing a folder needs a desktop browser: Chrome, Edge, Firefox or Safari. Support on phones and tablets varies by browser and version, and where a browser cannot choose a folder the editor says so and switches that button off. You can still open and edit a `photo-credits.json` there, without previews or leads.
 
 ## Showing credits on your site
 
@@ -171,6 +173,8 @@ On the credits page each entry shows its title, the credit and source, the licen
 
 Captions use the classes `photo-credit` and `photo-credit-inline`. The built-in styling has the lowest priority, so any rule in your own stylesheet overrides it.
 
+The script updates captions when the page changes, so pictures that load late and slides that change are followed without checking on a clock. The one exception is a slideshow run purely by a CSS animation, which it checks once a second while the page is on show.
+
 A working example is in [`examples/sample-site`](../examples/sample-site).
 
 ## The scanner
@@ -205,6 +209,7 @@ It looks at `.jpg`, `.jpeg`, `.png`, `.webp`, `.gif` and `.avif` files, and skip
 - **A slideshow shows no caption.** Set `data-rotators` to the slideshow's own selector. If slides move sideways instead of fading, also set `data-active` to the selector for the slide on show.
 - **A picture has a credit in the file but shows none on the site.** Check that `file` is the path from the top folder of the site, that `credit` is not blank, and that "No credit needed" is not ticked.
 - **The editor lists file paths that look wrong.** Choose the top folder of the site, not a folder inside it.
+- **The editor opened with pictures I did not expect.** It picked up unsaved work from an earlier visit in the same browser, and says so at the top. Choose your site folder and pick "Use the file in the folder", or click "Start over with an empty list".
 - **The scan says "no mention found" for a picture I know is used.** A script that builds file names in code is not detected. The picture still needs a credit.
 - **The scan will not run.** It needs Python 3.
 
@@ -217,4 +222,6 @@ Still stuck? See [SUPPORT.md](../SUPPORT.md).
 - The completeness rules know Creative Commons licenses. For any other license, an entry counts as complete once it has a credit and a license or permission; check that license's own terms for anything more it asks for.
 - Slideshows that move slides sideways need `data-active`, because the script cannot see which slide is on show otherwise.
 - Pictures loaded from another website are not in your site folder, so the scanner and the editor do not list them. You can add them by hand.
+- The editor's folder chooser needs a desktop browser. It is not dependable on phones and tablets.
+- When a script or stylesheet names a picture by file name alone and two folders hold a picture with that name, the scan lists that file under both. Alt text and captions are only ever attached to the one picture a page address clearly points at.
 - SVG files and icons in `.ico` format are not treated as pictures.

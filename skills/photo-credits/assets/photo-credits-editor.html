@@ -68,6 +68,11 @@ button, input { font: inherit; color: inherit; }
 .tag.new { color: var(--warn); }
 .tag.gone { color: var(--bad); }
 .linkbtn { margin-left: auto; border: 0; background: none; color: var(--bad); cursor: pointer; text-decoration: underline; font-size: 0.84rem; padding: 2px; }
+.ask { margin: 0 0 16px; padding: 14px 16px; background: var(--card); border: 2px solid var(--part); border-radius: 4px; }
+.ask p { margin: 0 0 10px; }
+.ask div { display: flex; flex-wrap: wrap; gap: 10px; }
+#status button { margin-left: 8px; padding: 1px 10px; border: 1px solid currentColor; border-radius: 999px; background: transparent; color: inherit; font-size: 0.82rem; font-weight: 600; cursor: pointer; }
+.btn[disabled] { opacity: 0.5; cursor: not-allowed; }
 .empty { padding: 36px 20px; text-align: center; color: var(--muted); border: 1px dashed var(--line); border-radius: 4px; }
 .small { font-size: 0.82rem; color: var(--muted); margin: 18px 0 0; max-width: 74ch; }
 @media (max-width: 640px) {
@@ -91,6 +96,10 @@ button, input { font: inherit; color: inherit; }
     <input type="file" id="inOpen" accept=".json,application/json" hidden>
   </div>
   <p id="status" role="status" aria-live="polite"></p>
+  <div class="ask" id="ask" role="alertdialog" aria-labelledby="askText" hidden>
+    <p id="askText"></p>
+    <div><button class="btn primary" id="askYes" type="button"></button><button class="btn" id="askNo" type="button"></button></div>
+  </div>
 
   <div class="tools">
     <button class="chip" type="button" data-filter="all" aria-pressed="true">All</button>
@@ -136,7 +145,7 @@ button, input { font: inherit; color: inherit; }
     { key: 'link', label: 'Link to the source page', hint: 'https://' }
   ];
 
-  var state = { photos: [], extra: {}, filter: 'all', query: '', folder: false, dirty: false };
+  var state = { photos: [], extra: {}, filter: 'all', query: '', folder: false, dirty: false, restored: false };
   var $ = function (id) { return document.getElementById(id); };
   var draftTimer = null;
 
@@ -179,7 +188,38 @@ button, input { font: inherit; color: inherit; }
     return url || '';
   }
 
-  function say(text, kind) { var s = $('status'); s.textContent = text || ''; s.className = kind || ''; }
+  function count(n, word) { return n + ' ' + word + (n === 1 ? '' : 's'); }
+
+  /* Status line. An optional action adds one small button after the text, such as Undo. */
+  function say(text, kind, action) {
+    var s = $('status'); s.textContent = text || ''; s.className = kind || '';
+    if (action) {
+      var b = document.createElement('button');
+      b.type = 'button'; b.textContent = action.label;
+      b.addEventListener('click', action.run);
+      s.appendChild(b);
+    }
+  }
+
+  /* A question shown in the page before anything is replaced. Resolves true for the first button. */
+  var askDone = null;
+  function ask(text, yes, no) {
+    if (askDone) askDone(false);
+    $('askText').textContent = text; $('askYes').textContent = yes; $('askNo').textContent = no;
+    $('ask').hidden = false;
+    $('askYes').focus();
+    return new Promise(function (resolve) {
+      askDone = function (answer) { askDone = null; $('ask').hidden = true; resolve(answer); };
+    });
+  }
+  $('askYes').addEventListener('click', function () { if (askDone) askDone(true); });
+  $('askNo').addEventListener('click', function () { if (askDone) askDone(false); });
+
+  /* True when the editor already holds exactly these entries, so nothing would be lost or gained. */
+  function sameList(photos) {
+    var a = state.photos.filter(function (p) { return String(p.file || '').trim(); }).map(clean);
+    return JSON.stringify(a) === JSON.stringify(photos.map(clean));
+  }
 
   /* ---- Facts stored inside a picture file: author, copyright, title. ---- */
   var EXIF_ASCII = { 0x010E: 'description', 0x013B: 'artist', 0x8298: 'copyright' };
@@ -554,8 +594,13 @@ button, input { font: inherit; color: inherit; }
     remove.type = 'button'; remove.className = 'linkbtn'; remove.textContent = 'Remove';
     remove.addEventListener('click', function () {
       var i = state.photos.indexOf(p);
-      if (i > -1) state.photos.splice(i, 1);
+      if (i < 0) return;
+      state.photos.splice(i, 1);
       changed(); render();
+      say('Removed ' + (String(p.file || '').trim() || 'an empty entry') + '.', 'warn', { label: 'Undo', run: function () {
+        state.photos.splice(Math.min(i, state.photos.length), 0, p);
+        changed(); render(); say('Put it back.');
+      } });
     });
     foot.appendChild(remove);
     el.appendChild(foot);
@@ -589,21 +634,23 @@ button, input { font: inherit; color: inherit; }
   }
 
   /* ---- Open an existing photo-credits.json ---- */
-  function openText(t) {
-    var d = readData(JSON.parse(t));
-    state.photos = d.photos; state.extra = d.extra; state.folder = false;
-  }
+  function useData(d) { state.photos = d.photos; state.extra = d.extra; state.folder = false; }
   $('btnOpen').addEventListener('click', function () { $('inOpen').click(); });
   $('inOpen').addEventListener('change', function (e) {
     var f = e.target.files && e.target.files[0];
     if (!f) return;
+    e.target.value = '';
     f.text().then(function (t) {
-      try {
-        openText(t);
+      var d;
+      try { d = readData(JSON.parse(t)); } catch (x) { say('That file could not be read as a photo credits file.', 'bad'); return; }
+      var go = (!state.photos.length || sameList(d.photos)) ? Promise.resolve(true)
+        : ask('Opening ' + f.name + ' will replace the ' + count(state.photos.length, 'picture') + ' now in the editor. Anything you have not downloaded will be lost.', 'Replace the list', 'Cancel');
+      return go.then(function (yes) {
+        if (!yes) { say('Kept the list in the editor. ' + f.name + ' was not opened.'); return; }
+        useData(d);
         state.dirty = false; saveDraft(); render();
-        say('Opened ' + f.name + ' with ' + state.photos.length + ' pictures. Choose your site folder to see previews and leads.');
-      } catch (x) { say('That file could not be read as a photo credits file.', 'bad'); }
-      e.target.value = '';
+        say('Opened ' + f.name + ' with ' + count(state.photos.length, 'picture') + '. Choose your site folder to see previews and leads.');
+      });
     });
   });
 
@@ -671,28 +718,37 @@ button, input { font: inherit; color: inherit; }
   $('btnFolder').addEventListener('click', function () { $('inFolder').click(); });
   $('inFolder').addEventListener('change', function (e) {
     var files = Array.prototype.slice.call(e.target.files || []);
+    e.target.value = '';
     if (!files.length) return;
     var hasIndex = files.some(function (f) { return /^index\.(html?|php)$/i.test(relPath(f)); });
     var manifest = null;
     files.forEach(function (f) { if (relPath(f).toLowerCase() === 'photo-credits.json') manifest = f; });
-    var loadedManifest = false;
-    var first = (!state.photos.length && manifest)
-      ? manifest.text().then(function (t) { try { openText(t); loadedManifest = true; } catch (x) { /* fall through with an empty list */ } })
-      : Promise.resolve();
+    var note = '';
+    var first = !manifest ? Promise.resolve() : manifest.text().then(function (t) {
+      var d;
+      try { d = readData(JSON.parse(t)); } catch (x) { note = ' The photo-credits.json in this folder could not be read, so it was left alone.'; return; }
+      if (!state.photos.length) { useData(d); note = ' Loaded the photo-credits.json found there.'; return; }
+      if (sameList(d.photos)) return;
+      /* The editor holds a different list, often unsaved work from an earlier visit. Never mix the two silently. */
+      return ask('This folder has its own photo-credits.json with ' + count(d.photos.length, 'picture') + '. The editor already holds a different list of ' +
+        count(state.photos.length, 'picture') + (state.restored ? ', saved in this browser from an earlier visit' : '') + '. Which do you want to work on?',
+        'Use the file in the folder', 'Keep the list in the editor').then(function (yes) {
+        if (yes) { useData(d); state.dirty = false; note = ' Loaded the photo-credits.json found there.'; }
+        else note = ' Kept the list in the editor. The photo-credits.json in the folder was not loaded.';
+      });
+    });
     first.then(function () {
-      state.folder = true;
+      state.folder = true; state.restored = false;
       var r = mergeFolder(files);
       if (r.added) state.dirty = true;
       saveDraft(); render();
-      var msg = 'Found ' + r.total + ' pictures in the folder: ' + r.added + ' new, ' + r.known + ' already listed' +
-        (r.missing ? ', ' + r.missing + ' listed but not found' : '') + '.' +
-        (loadedManifest ? ' Loaded the photo-credits.json found there.' : '');
+      var msg = 'Found ' + count(r.total, 'picture') + ' in the folder: ' + r.added + ' new, ' + r.known + ' already listed' +
+        (r.missing ? ', ' + r.missing + ' listed but not found' : '') + '.' + note;
       var kind = r.missing ? 'warn' : '';
       if (!hasIndex) { msg += ' This folder has no index page at its top level. If file paths look wrong, choose the top folder of your site instead.'; kind = 'warn'; }
       say(msg + ' Reading the picture files for leads...', kind);
-      e.target.value = '';
       return gatherLeads().then(function (n) {
-        say(msg + ' ' + (n ? 'Leads found for ' + n + (n === 1 ? ' picture' : ' pictures') + ' that still need work.' : 'No leads found in the picture files.'), kind);
+        say(msg + ' ' + (n ? 'Leads found for ' + count(n, 'picture') + ' that still ' + (n === 1 ? 'needs' : 'need') + ' work.' : 'No leads found in the picture files.'), kind);
       });
     });
   });
@@ -716,10 +772,14 @@ button, input { font: inherit; color: inherit; }
   });
   $('search').addEventListener('input', function (e) { state.query = e.target.value.trim().toLowerCase(); render(); });
   $('btnReset').addEventListener('click', function () {
-    if (state.photos.length && !window.confirm('Clear the whole list? Anything you have not downloaded will be lost.')) return;
-    state.photos = []; state.extra = {}; state.folder = false; state.dirty = false;
-    try { localStorage.removeItem(DRAFT_KEY); } catch (e) { /* ignore */ }
-    render(); say('Started an empty list.');
+    var go = !state.photos.length ? Promise.resolve(true)
+      : ask('Clear all ' + count(state.photos.length, 'picture') + ' from the editor? Anything you have not downloaded will be lost.', 'Clear the list', 'Cancel');
+    go.then(function (yes) {
+      if (!yes) return;
+      state.photos = []; state.extra = {}; state.folder = false; state.dirty = false; state.restored = false;
+      try { localStorage.removeItem(DRAFT_KEY); } catch (e) { /* ignore */ }
+      render(); say('Started an empty list.');
+    });
   });
 
   /* ---- Download ---- */
@@ -734,8 +794,8 @@ button, input { font: inherit; color: inherit; }
     var todo = data.photos.filter(function (p) { return status(p) === 'todo'; }).length;
     var part = data.photos.filter(function (p) { return status(p) === 'partial'; }).length;
     var bad = data.photos.filter(badLink).length;
-    var msg = 'Downloaded photo-credits.json with ' + data.photos.length + ' pictures. Put it in the top folder of your site.';
-    if (todo) msg += ' ' + todo + ' still have no credit.';
+    var msg = 'Downloaded photo-credits.json with ' + count(data.photos.length, 'picture') + '. Put it in the top folder of your site.';
+    if (todo) msg += ' ' + todo + (todo === 1 ? ' still has' : ' still have') + ' no credit.';
     if (part) msg += ' ' + part + (part === 1 ? ' is' : ' are') + ' credited but incomplete.';
     if (bad) msg += ' ' + bad + ' link' + (bad === 1 ? ' does' : 's do') + ' not start with http:// or https:// and will not be shown.';
     say(msg, (todo || part || bad) ? 'warn' : '');
@@ -743,7 +803,15 @@ button, input { font: inherit; color: inherit; }
 
   window.addEventListener('beforeunload', function (e) { if (state.dirty) { e.preventDefault(); e.returnValue = ''; } });
 
-  if (loadDraft()) say('Picked up where you left off. Choose your site folder again to see previews and leads.');
+  if (!('webkitdirectory' in HTMLInputElement.prototype)) {
+    $('btnFolder').disabled = true;
+    $('btnFolder').title = 'This browser cannot choose a folder. Use a desktop browser, or open photo-credits.json instead.';
+    say('This browser cannot choose a whole folder, so previews and leads are not available here. You can still open and edit photo-credits.json.', 'warn');
+  }
+  if (loadDraft()) {
+    state.restored = true;
+    say('Picked up ' + count(state.photos.length, 'picture') + ' of unsaved work from your last visit in this browser. Choose your site folder to see previews and leads, or start over below.', 'warn');
+  }
   render();
 })();
 </script>

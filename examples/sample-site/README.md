@@ -37,7 +37,7 @@ Open `skills/photo-credits/assets/photo-credits-editor.html` in a browser, click
 With the plugin installed and this folder available to Claude, try:
 
 1. "Which pictures in examples/sample-site still need a proper credit, and what can you find out about them?"
-2. "Pat Example took the lake picture and said we can use it. Old mill is our own work."
+2. "Pat Example took the lake picture and said we can use it. The dusk picture is our own work."
 3. "Check the photo credits in examples/sample-site before launch."
 
 Expected: Claude reports one incomplete and one uncredited picture, shows the author it found inside the lake picture and asks you to confirm it, writes only what you confirm, and the last check then passes.

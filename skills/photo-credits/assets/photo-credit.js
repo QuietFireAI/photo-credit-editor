@@ -182,14 +182,18 @@
   }
 
   function tagRotators() {
-    var boxes;
-    try { boxes = document.querySelectorAll(cfg.rotators); } catch (e) { return; }
+    var boxes, animated = false;
+    try { boxes = document.querySelectorAll(cfg.rotators); } catch (e) { return false; }
     Array.prototype.forEach.call(boxes, function (box) {
       var cap = null;
-      for (var i = 0; i < box.children.length; i++) if (box.children[i].classList.contains('photo-credit')) cap = box.children[i];
+      for (var i = 0; i < box.children.length; i++) {
+        var c = box.children[i];
+        if (c.classList.contains('photo-credit')) cap = c;
+        else if (getComputedStyle(c).animationName !== 'none') animated = true;
+      }
       var on = slideOnShow(box);
       var p = find(slideUrl(on) || slideUrl(box));
-      if (!shown(p)) { if (cap) cap.style.opacity = 0; return; }
+      if (!shown(p)) { if (cap && cap.style.opacity !== '0') cap.style.opacity = '0'; return; }
       if (!cap) {
         cap = document.createElement('div');
         cap.className = 'photo-credit';
@@ -198,31 +202,80 @@
       }
       var text = cfg.prefix + line(p);
       if (cap.textContent !== text) cap.textContent = text;
-      cap.style.opacity = 1;
+      if (cap.style.opacity !== '1') cap.style.opacity = '1';
     });
+    return animated;
+  }
+
+  /* Every address a picture may be using, including the ones lazy loaders keep until the picture is needed. */
+  function addresses(img) {
+    return [img.currentSrc, img.getAttribute('src'), img.getAttribute('data-src'),
+      img.getAttribute('data-lazy-src'), img.getAttribute('data-original')].filter(Boolean);
   }
 
   function tagImages() {
     var imgs;
     try { imgs = document.querySelectorAll(cfg.images); } catch (e) { return; }
     Array.prototype.forEach.call(imgs, function (img) {
-      if (img.tagName !== 'IMG' || img.hasAttribute('data-photo-credit-done')) return;
-      var src = img.currentSrc || img.getAttribute('src') || img.getAttribute('data-src') || '';
-      if (!src) return;   // not loaded yet; try again on the next pass
-      img.setAttribute('data-photo-credit-done', '');
-      var p = find(src);
-      if (!shown(p)) return;
-      var cap = document.createElement('span');
-      cap.className = 'photo-credit-inline';
-      cap.textContent = cfg.prefix + line(p);
-      var fig = img.closest('figure');
-      if (fig) {
-        var fc = fig.querySelector('figcaption');
-        if (!fc) { fc = document.createElement('figcaption'); fig.appendChild(fc); }
-        fc.appendChild(cap);
-      } else {
-        img.insertAdjacentElement('afterend', cap);
+      if (img.tagName !== 'IMG') return;
+      var list = addresses(img), signature = list.join('|');
+      if (img._photoCreditFor === signature) return;        // nothing about this picture changed
+      img._photoCreditFor = signature;
+      var p = null;
+      for (var i = 0; i < list.length && !p; i++) { var hit = find(list[i]); if (shown(hit)) p = hit; }
+      var cap = img._photoCreditCaption;
+      if (!p) {                                             // the picture changed to one with no credit
+        if (cap) { cap.remove(); img._photoCreditCaption = null; }
+        return;
       }
+      if (!cap) {
+        cap = document.createElement('span');
+        cap.className = 'photo-credit-inline';
+        var fig = img.closest('figure');
+        if (fig) {
+          var fc = fig.querySelector('figcaption');
+          if (!fc) { fc = document.createElement('figcaption'); fig.appendChild(fc); }
+          fc.appendChild(cap);
+        } else {
+          img.insertAdjacentElement('afterend', cap);
+        }
+        img._photoCreditCaption = cap;
+      }
+      var text = cfg.prefix + line(p);
+      if (cap.textContent !== text) cap.textContent = text;
+    });
+  }
+
+  /* Captions are brought up to date when the page changes, not on a clock. */
+  var waiting = null, clock = null;
+  function refresh() {
+    waiting = null;
+    var animated = cfg.rotators ? tagRotators() : false;
+    if (cfg.images) tagImages();
+    /* A slideshow run purely by a CSS animation changes with no page event to listen for.
+       Only then is a once-a-second check kept, and only while the page is on show. */
+    if (animated && !clock) clock = setInterval(function () { if (!document.hidden) schedule(); }, 1000);
+    else if (!animated && clock) { clearInterval(clock); clock = null; }
+  }
+  function schedule() { if (!waiting) waiting = setTimeout(refresh, 200); }
+  function ours(node) { return node && node.nodeType === 1 && /(^|\s)photo-credit(-inline)?(\s|$)/.test(node.className || ''); }
+  function watch() {
+    if (typeof MutationObserver === 'undefined') { setInterval(schedule, 1000); return; }
+    new MutationObserver(function (records) {
+      for (var i = 0; i < records.length; i++) {
+        var r = records[i];
+        if (ours(r.target)) continue;                       // our own captions changing
+        if (r.type === 'childList' && r.addedNodes.length + r.removedNodes.length &&
+            Array.prototype.every.call(r.addedNodes, ours) && Array.prototype.every.call(r.removedNodes, ours)) continue;
+        schedule();
+        return;
+      }
+    }).observe(document.documentElement, {
+      subtree: true, childList: true, attributes: true,
+      attributeFilter: ['src', 'srcset', 'style', 'class', 'hidden', 'data-src', 'data-lazy-src', 'data-original']
+    });
+    ['load', 'transitionend', 'animationend', 'animationiteration'].forEach(function (name) {
+      document.addEventListener(name, schedule, true);
     });
   }
 
@@ -236,8 +289,7 @@
     });
     addStyle();
     fillList(photos);
-    if (cfg.rotators) { tagRotators(); setInterval(tagRotators, 1000); }
-    if (cfg.images) { tagImages(); setInterval(tagImages, 2000); }
+    if (cfg.rotators || cfg.images) { refresh(); watch(); }
   }
 
   function run() {
