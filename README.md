@@ -24,7 +24,7 @@ In Claude Code:
 
 ```bash
 claude plugin marketplace add QuietFireAI/photo-credit-editor
-claude plugin install photo-credit-editor@firelands-ai
+claude plugin install photo-credit-editor@quietfireai
 ```
 
 ## How to use it
@@ -88,8 +88,8 @@ A credit line says who made a picture. It is not permission to use it. This plug
 
 ## Support
 
-Questions or problems: support@firelandsai.com, or see [SUPPORT.md](SUPPORT.md).
+Questions or problems: support@quietfireai.com, or see [SUPPORT.md](SUPPORT.md).
 
 ## License
 
-MIT. Copyright Firelands AI. See [LICENSE](LICENSE).
+MIT. Copyright QuietFireAI. See [LICENSE](LICENSE).

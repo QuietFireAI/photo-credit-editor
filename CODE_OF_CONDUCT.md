@@ -9,4 +9,4 @@ This project is for anyone who wants to give photographers proper credit. To kee
 
 Maintainers may edit or remove comments, issues and contributions that break these rules, and may block people who repeat the behaviour.
 
-To report a problem, email support@firelandsai.com. Reports are kept private.
+To report a problem, email support@quietfireai.com. Reports are kept private.

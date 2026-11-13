@@ -34,7 +34,7 @@ The skill tells Claude how to use all three to get each picture to a proper cred
 
 ```bash
 claude plugin marketplace add QuietFireAI/photo-credit-editor
-claude plugin install photo-credit-editor@firelands-ai
+claude plugin install photo-credit-editor@quietfireai
 ```
 
 **Without Claude:** the editor, the site script and the scanner are ordinary files in `skills/photo-credits/`. Download them and use them directly.

@@ -1,6 +1,6 @@
 # Terms of Use
 
-**Photo Credit Editor** is published by Firelands AI. Last updated: November 12, 2026.
+**Photo Credit Editor** is published by QuietFireAI. Last updated: November 12, 2026.
 
 ## License
 
@@ -8,7 +8,7 @@ The plugin is free, open-source software under the MIT License. The full text is
 
 ## No warranty
 
-The software is provided "as is", without warranty of any kind, as the MIT License states. Firelands AI is not liable for any claim or damage arising from its use.
+The software is provided "as is", without warranty of any kind, as the MIT License states. QuietFireAI is not liable for any claim or damage arising from its use.
 
 ## Your responsibilities
 
@@ -18,8 +18,8 @@ The software is provided "as is", without warranty of any kind, as the MIT Licen
 
 ## Third-party services
 
-When you use the plugin inside Claude, your use of Claude is governed by your agreement with Anthropic. Firelands AI is not affiliated with Anthropic.
+When you use the plugin inside Claude, your use of Claude is governed by your agreement with Anthropic. QuietFireAI is not affiliated with Anthropic.
 
 ## Contact
 
-support@firelandsai.com
+support@quietfireai.com

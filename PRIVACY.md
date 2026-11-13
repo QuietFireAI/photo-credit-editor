@@ -1,10 +1,10 @@
 # Privacy Policy
 
-**Photo Credit Editor** is published by Firelands AI. Last updated: November 12, 2026.
+**Photo Credit Editor** is published by QuietFireAI. Last updated: November 12, 2026.
 
 ## Summary
 
-This plugin collects no personal data. Firelands AI receives nothing from it: no accounts, no analytics, no telemetry, no cookies, no tracking.
+This plugin collects no personal data. QuietFireAI receives nothing from it: no accounts, no analytics, no telemetry, no cookies, no tracking.
 
 ## What each part does with data
 
@@ -23,7 +23,7 @@ This plugin collects no personal data. Firelands AI receives nothing from it: no
 
 When you use this plugin inside Claude, your conversation and any files you share with Claude are handled under your own agreement with Anthropic and Anthropic's privacy policy. This plugin does not change that and receives none of that data.
 
-To find the source of a picture, Claude may read a web page or search the web, using words from the picture's file name, caption or stored author. Those requests are made by Claude in your conversation, at your direction, not by Firelands AI.
+To find the source of a picture, Claude may read a web page or search the web, using words from the picture's file name, caption or stored author. Those requests are made by Claude in your conversation, at your direction, not by QuietFireAI.
 
 ## Children
 
@@ -35,4 +35,4 @@ Changes to this policy are recorded in this file's history in the repository.
 
 ## Contact
 
-support@firelandsai.com
+support@quietfireai.com

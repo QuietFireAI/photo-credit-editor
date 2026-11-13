@@ -4,8 +4,8 @@
   "version": "1.1.0",
   "description": "Make sure every picture on a website carries a proper credit: find the ones without, work out who made each and under what license, write the attribution, and show it on the site.",
   "author": {
-    "name": "Firelands AI",
-    "email": "support@firelandsai.com"
+    "name": "QuietFireAI",
+    "email": "support@quietfireai.com"
   },
   "homepage": "https://github.com/QuietFireAI/photo-credit-editor#readme",
   "repository": "https://github.com/QuietFireAI/photo-credit-editor",

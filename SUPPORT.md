@@ -2,7 +2,7 @@
 
 ## Get help
 
-- **Email:** support@firelandsai.com
+- **Email:** support@quietfireai.com
 - **Report a bug or ask for a feature:** open an issue at https://github.com/QuietFireAI/photo-credit-editor/issues
 
 Start with the [User Guide](docs/USER-GUIDE.md). Its troubleshooting section covers the common problems.

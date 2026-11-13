@@ -2,7 +2,7 @@
 
 ## Reporting a problem
 
-Email **support@firelandsai.com** with "Security" in the subject line. Please do not open a public issue for a security problem. Include the steps to reproduce it. You will get a reply as soon as we can, and credit in the changelog if you want it.
+Email **support@quietfireai.com** with "Security" in the subject line. Please do not open a public issue for a security problem. Include the steps to reproduce it. You will get a reply as soon as we can, and credit in the changelog if you want it.
 
 ## Supported versions
 

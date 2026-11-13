@@ -1,9 +1,9 @@
 {
-  "name": "firelands-ai",
-  "description": "Plugins from Firelands AI",
+  "name": "quietfireai",
+  "description": "Plugins from QuietFireAI",
   "owner": {
-    "name": "Firelands AI",
-    "email": "support@firelandsai.com"
+    "name": "QuietFireAI",
+    "email": "support@quietfireai.com"
   },
   "plugins": [
     {
