@@ -6,7 +6,7 @@ A three-picture website for trying the Photo Credit Editor and for checking chan
 | --- | --- | --- |
 | Hills at midday | Complete | Credit, source, license and link are all recorded |
 | Hills at dusk | Credited but incomplete | It has a credit but no license or permission |
-| Hills and a lake | No credit | The credit is blank, but the picture file carries an author and a copyright line inside it |
+| Hills under a teal sky | No credit | The credit is blank, but the picture file carries an author and a copyright line inside it |
 
 The three pictures were made for this example and are covered by the repository's MIT License. "Pat Example" is a made-up name stored in the third picture to show how leads work.
 
@@ -37,7 +37,7 @@ Open `skills/photo-credits/assets/photo-credits-editor.html` in a browser, click
 With the plugin installed and this folder available to Claude, try:
 
 1. "Which pictures in examples/sample-site still need a proper credit, and what can you find out about them?"
-2. "Pat Example took the lake picture and said we can use it. The dusk picture is our own work."
+2. "Pat Example took the teal picture and said we can use it. The dusk picture is our own work."
 3. "Check the photo credits in examples/sample-site before launch."
 
-Expected: Claude reports one incomplete and one uncredited picture, shows the author it found inside the lake picture and asks you to confirm it, writes only what you confirm, and the last check then passes.
+Expected: Claude reports one incomplete and one uncredited picture, shows the author it found inside the teal picture and asks you to confirm it, writes only what you confirm, and the last check then passes.
