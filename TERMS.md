@@ -4,11 +4,11 @@
 
 ## License
 
-The plugin is free, open-source software under the MIT License. The full text is in [LICENSE](LICENSE). You may use, copy, change and share it on the terms of that license.
+The plugin is free, open-source software under the Apache License, Version 2.0. The full text is in [LICENSE](LICENSE), with the copyright notice in [NOTICE](NOTICE). You may use, copy, change and share it on the terms of that license.
 
 ## No warranty
 
-The software is provided "as is", without warranty of any kind, as the MIT License states. QuietFireAI is not liable for any claim or damage arising from its use.
+The software is provided "as is", without warranty of any kind, as the Apache License, Version 2.0 states. QuietFireAI is not liable for any claim or damage arising from its use.
 
 ## Your responsibilities
 

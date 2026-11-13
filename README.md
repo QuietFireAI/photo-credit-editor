@@ -92,4 +92,4 @@ Questions or problems: support@quietfireai.com, or see [SUPPORT.md](SUPPORT.md).
 
 ## License
 
-MIT. Copyright QuietFireAI. See [LICENSE](LICENSE).
+Apache License 2.0. Copyright 2026 QuietFireAI / Jeff Phillips. See [LICENSE](LICENSE) and [NOTICE](NOTICE).

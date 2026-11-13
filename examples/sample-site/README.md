@@ -8,7 +8,7 @@ A three-picture website for trying the Photo Credit Editor and for checking chan
 | Hills at dusk | Credited but incomplete | It has a credit but no license or permission |
 | Hills under a teal sky | No credit | The credit is blank, but the picture file carries an author and a copyright line inside it |
 
-The three pictures were made for this example and are covered by the repository's MIT License. "Pat Example" is a made-up name stored in the third picture to show how leads work.
+The three pictures were made for this example and are covered by the repository's Apache 2.0 license. "Pat Example" is a made-up name stored in the third picture to show how leads work.
 
 ## See it in a browser
 

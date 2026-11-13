@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Copyright 2026 QuietFireAI / Jeff Phillips. Licensed under the Apache License, Version 2.0.
+# SPDX-License-Identifier: Apache-2.0
 """Check that every picture in a website folder has a proper credit, and gather leads for the ones that do not.
 
 Usage:

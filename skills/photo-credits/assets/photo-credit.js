@@ -1,4 +1,6 @@
-/*! photo-credit.js: shows photo credits on a website from photo-credits.json. MIT License.
+/*! photo-credit.js: shows photo credits on a website from photo-credits.json.
+ * Copyright 2026 QuietFireAI / Jeff Phillips. Licensed under the Apache License, Version 2.0.
+ * SPDX-License-Identifier: Apache-2.0
  *
  * Add one tag near the end of each page that should show credits:
  *

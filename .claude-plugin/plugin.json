@@ -9,7 +9,7 @@
   },
   "homepage": "https://github.com/QuietFireAI/photo-credit-editor#readme",
   "repository": "https://github.com/QuietFireAI/photo-credit-editor",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "keywords": [
     "photo credits",
     "image credits",

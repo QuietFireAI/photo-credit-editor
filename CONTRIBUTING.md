@@ -24,4 +24,4 @@ Open an issue and say what you did, what you expected, and what happened. For ed
 - Nothing in the plugin sends data anywhere.
 - Text from the credits file is inserted into pages as plain text, never as HTML.
 
-By contributing, you agree that your contribution is licensed under the MIT License.
+By contributing, you agree that your contribution is licensed under the Apache License, Version 2.0.
