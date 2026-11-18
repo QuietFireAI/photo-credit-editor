@@ -39,6 +39,7 @@ The scan and the editor apply the same rules:
 | A credit, but no license or permission | Incomplete |
 | A Creative Commons license without a link to the source page, or without a version number | Incomplete |
 | A Creative Commons license of version 3.0 or earlier without a title | Incomplete |
+| A Creative Commons license (other than CC0) with `"show": "none"` | Incomplete: the license requires the credit to be shown |
 | A credit and everything its license calls for | Complete |
 
 The Creative Commons rows follow Creative Commons' own guidance: credit the author, link to the source, and name the license; a title is required for versions 3.0 and earlier. Typical values for `license` are `Own work`, `Used with permission`, `Public domain`, `CC0 1.0`, `CC BY 4.0`, `CC BY-SA 4.0`, or the name of a stock license.
@@ -64,6 +65,7 @@ The Creative Commons rows follow Creative Commons' own guidance: credit the auth
 - `file` is the path from the top folder of the site.
 - A picture with a blank `credit` is not shown anywhere.
 - `"skip": true` marks a picture that needs no credit.
+- `"show"` says where the credit appears: leave it out for a caption on the picture and an entry on the credits page, `"page"` for the credits page only, `"none"` to keep the record without showing it. Set it only when the user asks.
 - Keep any field you do not recognise. Never reorder or delete existing entries unless asked.
 
 ## Steps
@@ -82,7 +84,7 @@ This changes nothing. For every picture it gives a status, and for every picture
 - `on_the_page`: the alt text and caption where the picture is used.
 - `file_name`: a picture site whose download naming the file name matches.
 
-Useful options: `--exclude "icons/*"` (repeatable) and `--min-kb 5` leave out icons and tiny graphics. Leave out `--json` for a report the user can read.
+Pictures not yet in the credits file whose longest side is under 100 pixels (icons, spacers, tracking pixels) are set aside in `too_small` and not counted as needing work. Tell the user how many were set aside and offer to include them; `--min-px 0` keeps everything. Never describe a set-aside picture as credited. Other options: `--exclude "icons/*"` (repeatable) and `--min-kb 5`. Leave out `--json` for a report the user can read.
 
 "No mention found in site files" does not mean a picture is unused. A slideshow script that builds file names in code is not detected.
 

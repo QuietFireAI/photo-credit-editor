@@ -13,6 +13,9 @@ Options:
     --manifest PATH    photo-credits.json location (default: SITE_FOLDER/photo-credits.json)
     --exclude GLOB     skip pictures whose path matches, e.g. --exclude "icons/*" (repeatable)
     --min-kb N         skip pictures smaller than N kilobytes (default 0: skip nothing)
+    --min-px N         set aside pictures whose longest side is under N pixels, such as tracking pixels,
+                       spacers and small icons (default 100; 0 keeps every picture). Only pictures not yet
+                       in photo-credits.json are set aside, and they are always listed, never hidden.
 
 For each picture the scan reports one status:
     complete     has a credit and everything its license calls for
@@ -20,6 +23,13 @@ For each picture the scan reports one status:
     no credit    listed, credit blank
     not listed   not in photo-credits.json yet
     no credit needed   marked "skip": true (logo, icon, own graphic)
+    too small    not listed, and smaller than --min-px: reported apart, not counted as needing work
+
+An entry may also say where its credit is shown, with "show":
+    (left out)   in a caption on the picture and on the credits page
+    "page"       on the credits page only
+    "none"       recorded but not shown anywhere. A Creative Commons license (other than CC0) requires
+                 the credit to be shown, so such an entry counts as incomplete.
 
 For every picture that is not complete it also reports leads: facts that help find the right credit.
     inside the file   author, copyright and similar fields stored in the picture file itself
@@ -301,6 +311,85 @@ def read_embedded(path):
     return out
 
 
+def _box_dims(data, start, end, depth=0):
+    """Width and height from an AVIF/HEIF 'ispe' box, searching the meta box tree."""
+    i = start
+    while i + 8 <= end and depth < 6:
+        size, kind = struct.unpack(">I4s", data[i:i + 8])
+        head = 8
+        if size == 1 and i + 16 <= end:
+            size = struct.unpack(">Q", data[i + 8:i + 16])[0]
+            head = 16
+        elif size == 0:
+            size = end - i
+        if size < head:
+            return None
+        if kind == b"ispe" and i + head + 12 <= end:
+            return struct.unpack(">II", data[i + head + 4:i + head + 12])
+        if kind in (b"meta", b"iprp", b"ipco"):
+            inner = i + head + (4 if kind == b"meta" else 0)       # meta carries a version and flags
+            found = _box_dims(data, inner, min(i + size, end), depth + 1)
+            if found:
+                return found
+        i += size
+    return None
+
+
+SOF = {0xC0, 0xC1, 0xC2, 0xC3, 0xC5, 0xC6, 0xC7, 0xC9, 0xCA, 0xCB, 0xCD, 0xCE, 0xCF}
+
+
+def read_dims(path):
+    """(width, height) in pixels read from the file header, or None when it cannot be read."""
+    try:
+        with open(path, "rb") as fh:
+            data = fh.read(512 * 1024)
+    except OSError:
+        return None
+    try:
+        if data[:8] == b"\x89PNG\r\n\x1a\n" and data[12:16] == b"IHDR":
+            return struct.unpack(">II", data[16:24])
+        if data[:6] in (b"GIF87a", b"GIF89a"):
+            return struct.unpack("<HH", data[6:10])
+        if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+            kind = data[12:16]
+            if kind == b"VP8 " and data[23:26] == b"\x9d\x01\x2a":
+                w, h = struct.unpack("<HH", data[26:30])
+                return w & 0x3FFF, h & 0x3FFF
+            if kind == b"VP8L" and data[20] == 0x2F:
+                b = data[21:25]
+                w = 1 + (((b[1] & 0x3F) << 8) | b[0])
+                h = 1 + (((b[3] & 0x0F) << 10) | (b[2] << 2) | ((b[1] & 0xC0) >> 6))
+                return w, h
+            if kind == b"VP8X":
+                w = 1 + int.from_bytes(data[24:27], "little")
+                h = 1 + int.from_bytes(data[27:30], "little")
+                return w, h
+            return None
+        if data[:2] == b"\xff\xd8":
+            i = 2
+            while i + 9 <= len(data):
+                if data[i] != 0xFF:
+                    return None
+                marker = data[i + 1]
+                if marker == 0xFF:
+                    i += 1
+                    continue
+                if marker in (0xD8, 0x01) or 0xD0 <= marker <= 0xD7:
+                    i += 2
+                    continue
+                size = struct.unpack(">H", data[i + 2:i + 4])[0]
+                if marker in SOF:
+                    h, w = struct.unpack(">HH", data[i + 5:i + 9])
+                    return w, h
+                i += 2 + size
+            return None
+        if data[4:8] == b"ftyp":
+            return _box_dims(data, 0, len(data))
+    except (struct.error, IndexError):
+        return None
+    return None
+
+
 def name_hints(rel):
     base = os.path.basename(rel)
     return [site for pattern, site in NAME_HINTS if pattern.search(base)]
@@ -474,6 +563,12 @@ def license_family(text):
     return "other"
 
 
+def show_mode(entry):
+    """Where a credit is shown: "all" (caption and credits page), "page" (credits page only) or "none"."""
+    value = str(entry.get("show") or "").strip().lower()
+    return value if value in ("page", "none") else "all"
+
+
 def problems(entry):
     """What a credited entry still lacks. An empty list means the attribution is complete.
 
@@ -486,6 +581,8 @@ def problems(entry):
     family = license_family(lic)
     if not lic:
         out.append("no license or permission recorded")
+    if family == "creative commons" and show_mode(entry) == "none":
+        out.append("a Creative Commons license requires the credit to be shown; it is set to show nowhere")
     if family == "creative commons":
         if not re.match(r"https?://", link, re.I):
             out.append("a Creative Commons license needs a link to the source page")
@@ -520,6 +617,7 @@ def main():
     ap.add_argument("--json", action="store_true", dest="as_json")
     ap.add_argument("--exclude", action="append", default=[])
     ap.add_argument("--min-kb", type=float, default=0)
+    ap.add_argument("--min-px", type=int, default=100)
     args = ap.parse_args()
 
     site = os.path.abspath(args.site)
@@ -573,6 +671,12 @@ def main():
     def used_on(rel):
         return sorted(refs.get(stem(norm(rel)), ()))
 
+    dims = {rel: read_dims(full_path[rel]) for rel, _ in kept}
+
+    def px(rel):
+        d = dims.get(rel)
+        return "%dx%d" % d if d else "unknown"
+
     def leads(rel):
         found = {}
         embedded = read_embedded(full_path[rel])
@@ -586,10 +690,16 @@ def main():
             found["file_name"] = hints
         return found
 
-    complete, incomplete, skipped, blank, unlisted = [], [], [], [], []
+    complete, incomplete, skipped, blank, unlisted, small = [], [], [], [], [], []
     for rel, size in kept:
         entry = listed.get(stem(norm(rel)))
-        row = {"file": rel, "kb": round(size / 1024, 1), "used_on": used_on(rel)}
+        row = {"file": rel, "kb": round(size / 1024, 1), "px": px(rel), "used_on": used_on(rel)}
+        d = dims.get(rel)
+        if entry is None and args.min_px and d and max(d) < args.min_px:
+            small.append(row)                             # unlisted and tiny: reported apart, never written
+            continue
+        if entry is not None and show_mode(entry) != "all":
+            row["show"] = show_mode(entry)
         if entry is not None and entry.get("skip"):
             skipped.append(row)
             continue
@@ -629,12 +739,14 @@ def main():
         "site": site,
         "manifest": manifest_path,
         "manifest_existed": existed,
-        "pictures_found": len(kept),
+        "pictures_found": len(kept) - len(small),
         "picture_files_found": files_found,
         "excluded": excluded,
         "complete": complete,
         "incomplete": incomplete,
         "no_credit_needed": skipped,
+        "too_small": small,
+        "min_px": args.min_px,
         "no_credit": blank,
         "not_listed": unlisted,
         "listed_but_file_missing": missing_files,
@@ -654,7 +766,9 @@ def main():
         notes.append("%s; the same picture in two file types counts once" % count(files_found, "file"))
     if excluded:
         notes.append("%d more excluded" % excluded)
-    print("%s found%s" % (count(len(kept), "picture", 5), (" (%s)" % "; ".join(notes)) if notes else ""))
+    if small:
+        notes.append("%d smaller than %d px set aside" % (len(small), args.min_px))
+    print("%s found%s" % (count(len(kept) - len(small), "picture", 5), (" (%s)" % "; ".join(notes)) if notes else ""))
     print("%5d complete" % len(complete))
     print("%5d credited but incomplete" % len(incomplete))
     print("%5d no credit" % len(blank))
@@ -669,7 +783,9 @@ def main():
             return
         print("\n%s" % title)
         for r in rows:
-            print("  %s" % r["file"])
+            print("  %s  (%s px)" % (r["file"], r["px"]))
+            if r.get("show"):
+                print("      shown: %s" % ("on the credits page only" if r["show"] == "page" else "nowhere"))
             if r.get("credit"):
                 print("      credit: %s" % r["credit"])
             for m in r.get("missing", ()):
@@ -692,6 +808,13 @@ def main():
     show("Credited but incomplete:", incomplete)
     show("No credit:", blank)
     show("Not in photo-credits.json yet (run again with --write to add them):", unlisted)
+    if small:
+        print("\nSet aside as smaller than %d px on the longest side (icons, spacers, tracking pixels)." % args.min_px)
+        print("Not counted as needing work. Run with --min-px 0 to include them:")
+        for r in small[:10]:
+            print("  %s  (%s px)" % (r["file"], r["px"]))
+        if len(small) > 10:
+            print("  ... and %d more" % (len(small) - 10))
     if missing_files:
         print("\nListed, but the file is not in the folder:")
         for f in missing_files:

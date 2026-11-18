@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.2.0 - 2026-11-18
+
+- Editor: click a preview to see the picture larger. Each preview shows the picture's size in pixels.
+- Editor and scanner: pictures smaller than 100 pixels on their longest side (icons, spacers, tracking pixels) are set aside instead of listed. They are always counted and shown, with a way to add them back, and the limit can be changed or turned off. Pictures already in the credits file are never set aside.
+- New `show` field: show a credit on the picture and the credits page (the default), on the credits page only, or nowhere. The editor has a choice for it, the site script follows it, and a Creative Commons picture set to show nowhere counts as incomplete.
+- Fixed, editor: changing the size limit and then clicking elsewhere no longer rebuilds the list under the click.
+
 ## 1.1.0 - 2026-11-12
 
 The plugin now works to get every picture a proper credit, instead of only listing which have one.

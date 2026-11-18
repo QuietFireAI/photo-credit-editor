@@ -97,7 +97,12 @@
     if (/\bcc0\b/i.test(name)) return 'https://creativecommons.org/publicdomain/zero/1.0/';
     return '';
   }
-  function shown(p) { return p && !p.skip && String(p.credit || '').trim(); }
+  /* A credit is used when it has a credit line and is not marked "no credit needed".
+     "show": "page" keeps it off the picture and on the credits page; "show": "none" keeps it off both. */
+  function credited(p) { return p && !p.skip && String(p.credit || '').trim(); }
+  function showMode(p) { var v = String((p && p.show) || '').toLowerCase(); return v === 'page' || v === 'none' ? v : 'all'; }
+  function shown(p) { return credited(p) && showMode(p) === 'all'; }      // caption on the picture
+  function listed(p) { return credited(p) && showMode(p) !== 'none'; }    // entry on the credits page
 
   function addStyle() {
     if (!cfg.style || document.getElementById('photo-credit-style')) return;
@@ -117,7 +122,7 @@
     try { list = document.querySelector(cfg.list); } catch (e) { list = null; }
     if (!list) return;
     list.textContent = '';
-    var rows = photos.filter(shown);
+    var rows = photos.filter(listed);
     if (!rows.length) {
       var none = document.createElement('p');
       none.className = 'photo-credit-empty';
@@ -285,7 +290,7 @@
     var photos = d && Array.isArray(d.photos) ? d.photos : (Array.isArray(d) ? d : []);
     photos = photos.filter(function (p) { return p && typeof p === 'object' && p.file; });
     photos.forEach(function (p) {
-      if (!shown(p)) return;
+      if (!credited(p)) return;      // every credited picture is matched, so a page-only one is never mistaken for another
       var k = entryKey(p.file);
       if (k) entries.push({ key: k, base: baseName(k), data: p });
     });

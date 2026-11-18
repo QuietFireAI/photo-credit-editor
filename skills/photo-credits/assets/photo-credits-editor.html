@@ -41,8 +41,27 @@ button, input { font: inherit; color: inherit; }
 .row.partial { border-left-color: var(--part); }
 .row.done { border-left-color: var(--ok); }
 .row.missing { border-left-color: var(--bad); }
-.thumb { width: 112px; height: 84px; border: 1px solid var(--line); border-radius: 3px; background: var(--field); display: grid; place-items: center; overflow: hidden; color: var(--muted); font-size: 0.72rem; text-align: center; padding: 4px; }
+.pic { display: grid; gap: 4px; align-content: start; }
+.thumb { width: 112px; height: 84px; border: 1px solid var(--line); border-radius: 3px; background: var(--field); display: grid; place-items: center; overflow: hidden; color: var(--muted); font: inherit; font-size: 0.72rem; text-align: center; padding: 4px; }
+button.thumb { padding: 0; cursor: zoom-in; }
+button.thumb:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.dims { font-size: 0.72rem; color: var(--muted); text-align: center; }
+.foot select { font: inherit; font-size: 0.84rem; padding: 3px 6px; border: 1px solid var(--line); border-radius: 3px; background: var(--field); color: var(--ink); }
+.foot select:disabled { opacity: 0.5; }
+#viewer { max-width: min(92vw, 1400px); padding: 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--card); color: var(--ink); }
+#viewer::backdrop { background: rgba(0, 0, 0, 0.7); }
+#viewer img { display: block; max-width: 100%; max-height: 78vh; margin: 0 auto; }
+#viewer .vbar { display: flex; gap: 12px; align-items: center; justify-content: space-between; margin-top: 10px; font-size: 0.85rem; color: var(--muted); }
+#viewer .vbar span { overflow-wrap: anywhere; }
+.sizefilter { display: flex; gap: 6px; align-items: center; font-size: 0.85rem; color: var(--muted); }
+.sizefilter input { width: 4.5em; padding: 5px 6px; border: 1px solid var(--line); border-radius: 4px; background: var(--card); }
+#smallBox { margin: 0 0 16px; padding: 10px 14px; border: 1px dashed var(--line); border-radius: 4px; font-size: 0.86rem; }
+#smallBox summary { cursor: pointer; font-weight: 600; }
+#smallBox ul { margin: 10px 0; padding: 0; list-style: none; display: grid; gap: 6px; max-height: 260px; overflow: auto; }
+#smallBox li { display: flex; gap: 10px; align-items: center; }
+#smallBox li img { width: 32px; height: 32px; object-fit: contain; border: 1px solid var(--line); background: var(--field); image-rendering: pixelated; }
+#smallBox li span { flex: 1; overflow-wrap: anywhere; }
 .fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .fields label { display: grid; gap: 3px; font-size: 0.76rem; font-weight: 600; }
 .fields input { padding: 8px 9px; border: 1px solid var(--line); border-radius: 3px; background: var(--field); font-weight: 400; font-size: 0.92rem; width: 100%; }
@@ -107,13 +126,26 @@ button, input { font: inherit; color: inherit; }
     <button class="chip" type="button" data-filter="todo" aria-pressed="false">Needs work</button>
     <button class="chip" type="button" data-filter="done" aria-pressed="false">Complete</button>
     <input id="search" type="search" placeholder="Search file, title or credit" aria-label="Search pictures">
+    <label class="sizefilter">Leave out images smaller than <input id="minPx" type="number" min="0" step="10" value="100"> px</label>
     <span id="count"></span>
   </div>
+
+  <details id="smallBox" hidden>
+    <summary id="smallSum"></summary>
+    <p style="margin:8px 0 0">These are smaller than the size above on their longest side, which usually means icons, spacers or invisible tracking pixels. They are left out of the list and the saved file. Add any that are real pictures.</p>
+    <ul id="smallList"></ul>
+    <button class="btn" id="smallAddAll" type="button">Add them all to the list</button>
+  </details>
 
   <div id="rows"></div>
 
   <p class="small"><b>What counts as complete:</b> a credit, plus the license or permission you are using the picture under. A Creative Commons picture also needs a link to its source page and the license version, and versions 3.0 and earlier need the title. A lead found in a file is evidence, not proof: use it only if you know it is right.</p>
   <p class="small">A credit line says who made a picture. It is not permission to use it. If you are not sure you are allowed to use a picture, check with its owner before publishing. <button class="linkbtn" id="btnReset" type="button" style="margin-left:0">Start over with an empty list</button></p>
+
+  <dialog id="viewer" aria-label="Picture preview">
+    <img id="viewerImg" alt="">
+    <div class="vbar"><span id="viewerText"></span><button class="btn" id="viewerClose" type="button">Close</button></div>
+  </dialog>
 
   <datalist id="licenses">
     <option value="Own work"></option>
@@ -164,9 +196,14 @@ button, input { font: inherit; color: inherit; }
     if (/\bcc[ -]?by\b|creative commons/.test(t)) return 'creative commons';
     return 'other';
   }
+  /* Where a credit is shown: 'all' (caption on the picture and the credits page), 'page' (credits page only), 'none'. */
+  function showMode(p) { var v = String(p.show || '').trim().toLowerCase(); return v === 'page' || v === 'none' ? v : 'all'; }
+  var SHOW_LABELS = { all: 'On the picture and the credits page', page: 'On the credits page only', none: 'Nowhere (keep the record only)' };
+
   function problems(p) {
     var out = [], lic = String(p.license || '').trim(), link = String(p.link || '').trim();
     if (!lic) out.push('no license or permission recorded');
+    if (licenseFamily(lic) === 'creative commons' && showMode(p) === 'none') out.push('a Creative Commons license requires the credit to be shown; it is set to show nowhere');
     if (licenseFamily(lic) === 'creative commons') {
       if (!/^https?:\/\//i.test(link)) out.push('a Creative Commons license needs a link to the source page');
       var v = /(\d)\.\d/.exec(lic);
@@ -406,6 +443,7 @@ button, input { font: inherit; color: inherit; }
       Object.keys(p).forEach(function (k) { if (k.charAt(0) !== '_') row[k] = p[k]; });
       ['file', 'title', 'credit', 'source', 'license', 'link'].forEach(function (k) { row[k] = row[k] == null ? '' : String(row[k]); });
       row.skip = !!row.skip;
+      row.show = showMode(row);
       return row;
     });
     return { photos: photos, extra: extra };
@@ -414,9 +452,10 @@ button, input { font: inherit; color: inherit; }
     var out = {};
     ['file', 'title', 'credit', 'source', 'license', 'link'].forEach(function (k) { out[k] = String(p[k] || '').trim(); });
     Object.keys(p).forEach(function (k) {
-      if (k.charAt(0) === '_' || k in out || k === 'skip') return;
+      if (k.charAt(0) === '_' || k in out || k === 'skip' || k === 'show') return;
       out[k] = p[k];
     });
+    if (showMode(p) !== 'all') out.show = showMode(p);
     if (p.skip) out.skip = true;
     return out;
   }
@@ -465,6 +504,7 @@ button, input { font: inherit; color: inherit; }
     var n = { done: 0, partial: 0, todo: 0 };
     state.photos.forEach(function (p) { n[status(p)]++; });
     $('count').textContent = state.photos.length ? n.done + ' complete, ' + n.partial + ' incomplete, ' + n.todo + ' with no credit' : '';
+    paintSmall();
   }
 
   function paintRow(el, p) {
@@ -483,7 +523,8 @@ button, input { font: inherit; color: inherit; }
     if (!p.skip && String(p.credit || '').trim()) {
       var r = document.createElement('span');
       r.className = 'reads';
-      r.textContent = '  Reads as: Photo: ' + p.credit.trim() + (p.source.trim() ? ', ' + p.source.trim() : '') + (p.license.trim() ? ' (' + p.license.trim() + ')' : '');
+      var where = showMode(p) === 'page' ? '  Shown on the credits page only.' : showMode(p) === 'none' ? '  Not shown anywhere.' : '';
+      r.textContent = '  Reads as: Photo: ' + p.credit.trim() + (p.source.trim() ? ', ' + p.source.trim() : '') + (p.license.trim() ? ' (' + p.license.trim() + ')' : '') + '.' + where;
       box.appendChild(r);
     }
   }
@@ -549,16 +590,31 @@ button, input { font: inherit; color: inherit; }
     el.className = 'row';
     p._el = el;
 
-    var thumb = document.createElement('div');
-    thumb.className = 'thumb';
+    var pic = document.createElement('div');
+    pic.className = 'pic';
+    var thumb;
     if (p._thumb) {
+      thumb = document.createElement('button');
+      thumb.type = 'button'; thumb.className = 'thumb';
+      thumb.setAttribute('aria-label', 'View ' + (p.file || 'this picture') + ' larger');
+      thumb.title = 'Click to view larger';
       var img = document.createElement('img');
       img.src = p._thumb; img.alt = ''; img.loading = 'lazy';
       thumb.appendChild(img);
+      thumb.addEventListener('click', function () { openViewer(p); });
     } else {
+      thumb = document.createElement('div');
+      thumb.className = 'thumb';
       thumb.textContent = state.folder ? 'No preview' : 'Choose site folder to see previews';
     }
-    el.appendChild(thumb);
+    pic.appendChild(thumb);
+    if (p._dims) {
+      var dims = document.createElement('div');
+      dims.className = 'dims';
+      dims.textContent = p._dims[0] + ' \u00d7 ' + p._dims[1] + ' px';
+      pic.appendChild(dims);
+    }
+    el.appendChild(pic);
 
     var fields = document.createElement('div');
     fields.className = 'fields';
@@ -585,10 +641,21 @@ button, input { font: inherit; color: inherit; }
     var skipLabel = document.createElement('label');
     var skip = document.createElement('input');
     skip.type = 'checkbox'; skip.checked = !!p.skip;
-    skip.addEventListener('change', function () { p.skip = skip.checked; paintRow(el, p); changed(); });
+    var showLabel = document.createElement('label');
+    showLabel.appendChild(document.createTextNode('Show the credit:'));
+    var show = document.createElement('select');
+    show.setAttribute('data-key', 'show');
+    Object.keys(SHOW_LABELS).forEach(function (k) {
+      var o = document.createElement('option'); o.value = k; o.textContent = SHOW_LABELS[k]; show.appendChild(o);
+    });
+    show.value = showMode(p); show.disabled = !!p.skip;
+    show.addEventListener('change', function () { p.show = show.value; paintRow(el, p); changed(); });
+    showLabel.appendChild(show);
+    skip.addEventListener('change', function () { p.skip = skip.checked; show.disabled = skip.checked; paintRow(el, p); changed(); });
     skipLabel.appendChild(skip);
     skipLabel.appendChild(document.createTextNode('No credit needed (logo, icon, or your own graphic)'));
     foot.appendChild(skipLabel);
+    foot.appendChild(showLabel);
     if (p._new) { var t1 = document.createElement('span'); t1.className = 'tag new'; t1.textContent = 'New'; foot.appendChild(t1); }
     if (p._missing) { var t2 = document.createElement('span'); t2.className = 'tag gone'; t2.textContent = 'File not found in the folder'; foot.appendChild(t2); }
     var remove = document.createElement('button');
@@ -655,6 +722,149 @@ button, input { font: inherit; color: inherit; }
     });
   });
 
+  /* ---- Picture sizes, read from the file header without decoding the picture. The same rules as scan_photos.py. ---- */
+  var SOF = [0xC0, 0xC1, 0xC2, 0xC3, 0xC5, 0xC6, 0xC7, 0xC9, 0xCA, 0xCB, 0xCD, 0xCE, 0xCF];
+  function boxDims(u8, d, start, end, depth) {
+    var i = start;
+    while (i + 8 <= end && depth < 6) {
+      var size = d.getUint32(i), kind = text(u8.subarray(i + 4, i + 8), 'latin1'), head = 8;
+      if (size === 0) size = end - i;
+      if (size < head) return null;
+      if (kind === 'ispe' && i + head + 12 <= end) return [d.getUint32(i + head + 4), d.getUint32(i + head + 8)];
+      if (kind === 'meta' || kind === 'iprp' || kind === 'ipco') {
+        var found = boxDims(u8, d, i + head + (kind === 'meta' ? 4 : 0), Math.min(i + size, end), depth + 1);
+        if (found) return found;
+      }
+      i += size;
+    }
+    return null;
+  }
+  function headerDims(u8) {
+    var d = view(u8), t = text(u8.subarray(0, 16), 'latin1');
+    if (u8[0] === 0x89 && t.slice(1, 4) === 'PNG' && t.slice(12, 16) === 'IHDR') return [d.getUint32(16), d.getUint32(20)];
+    if (t.slice(0, 6) === 'GIF87a' || t.slice(0, 6) === 'GIF89a') return [d.getUint16(6, true), d.getUint16(8, true)];
+    if (t.slice(0, 4) === 'RIFF' && t.slice(8, 12) === 'WEBP') {
+      var k = t.slice(12, 16);
+      if (k === 'VP8 ' && u8[23] === 0x9D && u8[24] === 0x01 && u8[25] === 0x2A) return [d.getUint16(26, true) & 0x3FFF, d.getUint16(28, true) & 0x3FFF];
+      if (k === 'VP8L' && u8[20] === 0x2F) return [1 + (((u8[22] & 0x3F) << 8) | u8[21]), 1 + (((u8[24] & 0x0F) << 10) | (u8[23] << 2) | ((u8[22] & 0xC0) >> 6))];
+      if (k === 'VP8X') return [1 + (u8[24] | (u8[25] << 8) | (u8[26] << 16)), 1 + (u8[27] | (u8[28] << 8) | (u8[29] << 16))];
+      return null;
+    }
+    if (u8[0] === 0xFF && u8[1] === 0xD8) {
+      var i = 2;
+      while (i + 9 <= u8.length) {
+        if (u8[i] !== 0xFF) return null;
+        var m = u8[i + 1];
+        if (m === 0xFF) { i++; continue; }
+        if (m === 0xD8 || m === 0x01 || (m >= 0xD0 && m <= 0xD7)) { i += 2; continue; }
+        if (SOF.indexOf(m) !== -1) return [d.getUint16(i + 7), d.getUint16(i + 5)];
+        i += 2 + d.getUint16(i + 2);
+      }
+      return null;
+    }
+    if (t.slice(4, 8) === 'ftyp') return boxDims(u8, d, 0, u8.length, 0);
+    return null;
+  }
+  function readDims(file) {
+    return file.slice(0, 512 * 1024).arrayBuffer().then(function (buf) {
+      var found = null;
+      try { found = headerDims(new Uint8Array(buf)); } catch (e) { found = null; }
+      if (found || typeof createImageBitmap === 'undefined') return found;
+      /* An unusual file: let the browser decode it once to learn its size. */
+      return createImageBitmap(file).then(function (b) { var r = [b.width, b.height]; if (b.close) b.close(); return r; }, function () { return null; });
+    }).catch(function () { return null; });
+  }
+  function measure(items) {   // items: [{ file }], fills item._dims, four files at a time
+    var queue = items.slice(), running = 0;
+    return new Promise(function (resolve) {
+      if (!queue.length) return resolve();
+      function next() {
+        if (!queue.length) { if (!running) resolve(); return; }
+        var it = queue.shift(); running++;
+        readDims(it.file).then(function (dm) { it._dims = dm; running--; next(); });
+      }
+      for (var i = 0; i < 4; i++) next();
+    });
+  }
+
+  /* ---- Pictures too small to list: set aside, always shown in a box, never dropped silently ---- */
+  var MINPX_KEY = 'photo-credits-editor-minpx';
+  state.small = [];
+  try { var savedMin = localStorage.getItem(MINPX_KEY); if (savedMin !== null && /^\d+$/.test(savedMin)) $('minPx').value = savedMin; } catch (e) { /* ignore */ }
+  function minPx() { var v = parseInt($('minPx').value, 10); return isFinite(v) && v > 0 ? v : 0; }
+  function isSmall(dm) { return !!(dm && minPx() && Math.max(dm[0], dm[1]) < minPx()); }
+  function untouched(p) {
+    return p._new && !p._kept && !p.skip && showMode(p) === 'all' &&
+      ['title', 'credit', 'source', 'license', 'link'].every(function (k) { return !String(p[k] || '').trim(); });
+  }
+  function rowFor(item) {
+    var row = blank(item.rel);
+    row._new = true; row._file = item.file; row._dims = item._dims; row._hints = nameHints(row.file);
+    row._thumb = URL.createObjectURL(item.file);
+    return row;
+  }
+  function paintSmall() {
+    var box = $('smallBox'), list = $('smallList');
+    box.hidden = !state.small.length;
+    if (!state.small.length) return;
+    $('smallSum').textContent = count(state.small.length, 'small image') + ' left out (under ' + minPx() + ' px)';
+    list.textContent = '';
+    state.small.forEach(function (it, i) {
+      var li = document.createElement('li');
+      var im = document.createElement('img'); im.alt = ''; im.src = it._url || (it._url = URL.createObjectURL(it.file));
+      var sp = document.createElement('span'); sp.textContent = it.rel + (it._dims ? '  (' + it._dims[0] + ' × ' + it._dims[1] + ' px)' : '');
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'btn'; b.textContent = 'Add';
+      b.addEventListener('click', function () { addSmall([state.small[i]]); });
+      li.appendChild(im); li.appendChild(sp); li.appendChild(b); list.appendChild(li);
+    });
+  }
+  function addSmall(items) {
+    items.forEach(function (it) {
+      var i = state.small.indexOf(it);
+      if (i > -1) state.small.splice(i, 1);
+      var row = rowFor(it); row._kept = true; state.photos.push(row);
+    });
+    changed(); render();
+    say('Added ' + count(items.length, 'small image') + ' to the list.');
+  }
+  $('smallAddAll').addEventListener('click', function () { addSmall(state.small.slice()); });
+  /* When the size changes, move untouched new rows out, and set-aside images back in, to match it. */
+  var appliedMin = minPx();
+  $('minPx').addEventListener('change', function () {
+    /* The change event also fires when the box loses focus. Do nothing unless the number changed,
+       and rebuild the list only if a picture moved, so a click elsewhere is never swallowed. */
+    if (minPx() === appliedMin) return;
+    appliedMin = minPx();
+    try { localStorage.setItem(MINPX_KEY, String(minPx())); } catch (e) { /* ignore */ }
+    if (!state.folder) { paintSmall(); return; }
+    var out = 0, back = 0;
+    state.photos = state.photos.filter(function (p) {
+      if (untouched(p) && isSmall(p._dims)) { state.small.push({ file: p._file, rel: p.file, _dims: p._dims }); out++; return false; }
+      return true;
+    });
+    state.small = state.small.filter(function (it) {
+      if (isSmall(it._dims)) return true;
+      state.photos.push(rowFor(it)); back++; return false;
+    });
+    saveDraft();
+    if (out || back) render(); else paintSmall();
+    say('Size limit is now ' + (minPx() ? minPx() + ' px' : 'off') + '. ' + count(out, 'image') + ' left out, ' + count(back, 'image') + ' added back.');
+  });
+
+  /* ---- Larger preview ---- */
+  function openViewer(p) {
+    var dlg = $('viewer');
+    if (!p._thumb) return;
+    if (!dlg.showModal) { window.open(p._thumb, '_blank', 'noopener'); return; }
+    $('viewerImg').src = p._thumb;
+    $('viewerText').textContent = p.file + (p._dims ? '  ·  ' + p._dims[0] + ' × ' + p._dims[1] + ' px' : '') +
+      (p._file ? '  ·  ' + Math.max(1, Math.round(p._file.size / 1024)) + ' KB' : '');
+    dlg.showModal();
+  }
+  $('viewerClose').addEventListener('click', function () { $('viewer').close(); });
+  $('viewer').addEventListener('click', function (e) { if (e.target === $('viewer')) $('viewer').close(); });   // click outside the picture
+  $('viewer').addEventListener('close', function () { $('viewerImg').removeAttribute('src'); });
+
   /* ---- Choose the site folder: list every picture, show previews, flag what is missing, gather leads ---- */
   function relPath(f) { return String(f.webkitRelativePath || f.name).split('/').slice(1).join('/') || f.name; }
   function hidden(path) { return path.split('/').some(function (s) { return s.charAt(0) === '.' || s === 'node_modules'; }); }
@@ -685,16 +895,20 @@ button, input { font: inherit; color: inherit; }
         }
       }
       if (hit) { used[stem(hit)] = true; known++; p._missing = false; p._file = images[hit].file; p._thumb = URL.createObjectURL(images[hit].file); }
-      else { missing++; p._missing = true; p._thumb = null; }
+      else { missing++; p._missing = true; p._thumb = null; p._dims = null; }
     });
-    var added = 0;
-    order.forEach(function (k) {
-      if (used[stem(k)]) return;
-      var row = blank(images[k].rel);
-      row._new = true; row._file = images[k].file; row._hints = nameHints(row.file); row._thumb = URL.createObjectURL(images[k].file);
-      state.photos.push(row); added++;
+    var fresh = order.filter(function (k) { return !used[stem(k)]; }).map(function (k) { return { file: images[k].file, rel: images[k].rel }; });
+    var listed = state.photos.filter(function (p) { return p._file; }).map(function (p) { return { file: p._file, row: p }; });
+    return measure(fresh.concat(listed)).then(function () {
+      listed.forEach(function (it) { it.row._dims = it._dims; });
+      var added = 0, small = [];
+      fresh.forEach(function (it) {
+        if (isSmall(it._dims)) { small.push(it); return; }   // listed pictures are never set aside, whatever their size
+        state.photos.push(rowFor(it)); added++;
+      });
+      state.small = small;
+      return { total: order.length, added: added, known: known, missing: missing, small: small.length };
     });
-    return { total: order.length, added: added, known: known, missing: missing };
   }
 
   /* Read what is stored inside each picture that still needs work, a few files at a time. */
@@ -740,10 +954,13 @@ button, input { font: inherit; color: inherit; }
     });
     first.then(function () {
       state.folder = true; state.restored = false;
-      var r = mergeFolder(files);
+      say('Reading the folder...');
+      return mergeFolder(files);
+    }).then(function (r) {
       if (r.added) state.dirty = true;
       saveDraft(); render();
       var msg = 'Found ' + count(r.total, 'picture') + ' in the folder: ' + r.added + ' new, ' + r.known + ' already listed' +
+        (r.small ? ', ' + r.small + ' left out as smaller than ' + minPx() + ' px' : '') +
         (r.missing ? ', ' + r.missing + ' listed but not found' : '') + '.' + note;
       var kind = r.missing ? 'warn' : '';
       if (!hasIndex) { msg += ' This folder has no index page at its top level. If file paths look wrong, choose the top folder of your site instead.'; kind = 'warn'; }
@@ -777,7 +994,7 @@ button, input { font: inherit; color: inherit; }
       : ask('Clear all ' + count(state.photos.length, 'picture') + ' from the editor? Anything you have not downloaded will be lost.', 'Clear the list', 'Cancel');
     go.then(function (yes) {
       if (!yes) return;
-      state.photos = []; state.extra = {}; state.folder = false; state.dirty = false; state.restored = false;
+      state.photos = []; state.extra = {}; state.folder = false; state.dirty = false; state.restored = false; state.small = [];
       try { localStorage.removeItem(DRAFT_KEY); } catch (e) { /* ignore */ }
       render(); say('Started an empty list.');
     });

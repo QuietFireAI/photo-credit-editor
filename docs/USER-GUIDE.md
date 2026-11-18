@@ -119,6 +119,7 @@ Common values for the license field:
 | `license` | The license or permission |
 | `link` | Address of the source page. Shown only if it starts with `http://` or `https://` |
 | `skip` | Set to `true` for a picture that needs no credit, such as a logo or icon |
+| `show` | Where the credit is shown. Leave it out for a caption on the picture and an entry on the credits page. `"page"` shows it on the credits page only. `"none"` keeps the record without showing it anywhere |
 
 The file type is ignored when matching, so one entry for `mill.jpg` also covers `mill.webp`.
 
@@ -126,14 +127,17 @@ The file type is ignored when matching, so one entry for `mill.jpg` also covers 
 
 `skills/photo-credits/assets/photo-credits-editor.html` is a single file. Open it in a web browser. It needs no internet connection and uploads nothing.
 
-1. Click **Choose site folder** and pick the top folder of your site, the one that holds the home page. The editor lists every picture with a preview. If the folder already has a `photo-credits.json`, it is loaded. If the editor is already holding a different list, such as unsaved work from an earlier visit, it asks which one you want before changing anything.
+1. Click **Choose site folder** and pick the top folder of your site, the one that holds the home page. The editor lists every picture with a preview and its size in pixels. Click a preview to see the picture larger; press Escape or click outside it to close. If the folder already has a `photo-credits.json`, it is loaded. If the editor is already holding a different list, such as unsaved work from an earlier visit, it asks which one you want before changing anything.
 2. The editor reads each picture file that still needs work. Where it finds an author, copyright, title or license, a **Leads for this picture** box appears with a **Use** button beside each. Use a lead only if you know it is right.
 3. Fill in the rest. Under each picture the editor says **Complete**, **No credit yet**, or **Incomplete** with what is missing, and shows how the credit will read.
 4. Tick **No credit needed** for logos, icons and graphics you made yourself.
-5. Use **Needs work** to see only what is left.
-6. Click **Download photo-credits.json** and put the file in the top folder of your site.
+5. Choose where each credit is shown with **Show the credit**: on the picture and the credits page (the usual choice), on the credits page only, or nowhere. "Nowhere" keeps the record without showing it. A Creative Commons license requires the credit to be shown, so a Creative Commons picture set to show nowhere is marked incomplete.
+6. Use **Needs work** to see only what is left.
+7. Click **Download photo-credits.json** and put the file in the top folder of your site.
 
 Other buttons: **Open photo-credits.json** loads an existing file without choosing a folder, and asks first if that would replace a list you are working on. **Add a picture** adds an entry by hand. **Remove** takes an entry out and offers **Undo**.
+
+**Small images.** Pictures smaller than 100 pixels on their longest side, such as icons, spacers and invisible tracking pixels, are left out of the list and the saved file. They are never dropped silently: a box above the list counts them, shows each one with its size, and has an **Add** button for any that are real pictures. Change the number in **Leave out images smaller than** to suit your site, or set it to 0 to list everything. Pictures already in your `photo-credits.json` are never left out, whatever their size.
 
 Your browser will ask to confirm when you choose a folder. The files are read on your computer only. Unsaved work is kept in the browser, so closing the tab does not lose it; the editor tells you when it has picked up work from an earlier visit.
 
@@ -173,6 +177,8 @@ On the credits page each entry shows its title, the credit and source, the licen
 
 Captions use the classes `photo-credit` and `photo-credit-inline`. The built-in styling has the lowest priority, so any rule in your own stylesheet overrides it.
 
+A picture whose entry has `"show": "page"` gets no caption but is listed on the credits page. One with `"show": "none"` is left off both. To turn captions off for the whole site, leave out `data-rotators` and `data-images`; to have no credits page, leave out the list element.
+
 The script updates captions when the page changes, so pictures that load late and slides that change are followed without checking on a clock. The one exception is a slideshow run purely by a CSS animation, which it checks once a second while the page is on show.
 
 A working example is in [`examples/sample-site`](../examples/sample-site).
@@ -193,6 +199,7 @@ python3 scan_photos.py SITE_FOLDER --json     # the report as JSON, leads includ
 | `--manifest PATH` | Use a credits file somewhere other than `SITE_FOLDER/photo-credits.json` |
 | `--exclude GLOB` | Leave out pictures whose path matches, such as `--exclude "icons/*"`. Repeatable |
 | `--min-kb N` | Leave out pictures smaller than N kilobytes |
+| `--min-px N` | Set aside pictures not yet in the credits file whose longest side is under N pixels. Default 100; `--min-px 0` keeps every picture. Set-aside pictures are listed in the report, never added by `--write`, and not counted as needing work |
 
 The report gives a status for every picture and, for each one that is not complete, what is missing and the leads it found. With `--write`, existing entries are never changed or removed, and no credit is ever written from a lead.
 
@@ -217,6 +224,7 @@ Still stuck? See [SUPPORT.md](../SUPPORT.md).
 
 ## Limits
 
+- The size limit judges a picture by its pixel size alone. A real photograph saved under 100 pixels is left out until you add it from the box or lower the limit.
 - The plugin finds, completes and records credits. It does not check whether you are allowed to use a picture, and it is not legal advice.
 - It cannot recognise a picture by its content. Finding the source of a picture that has no leads needs either your knowledge or a search by image, which the plugin does not do itself.
 - The completeness rules know Creative Commons licenses. For any other license, an entry counts as complete once it has a credit and a license or permission; check that license's own terms for anything more it asks for.
