@@ -366,36 +366,73 @@ button.thumb:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
       i += 2 + size;
     }
   }
-  function inflate(u8) {
-    if (typeof DecompressionStream === 'undefined') return Promise.resolve(null);
+  var MAX_PNG_TEXT_CHUNK = 64 * 1024, MAX_PNG_TEXT_TOTAL = 256 * 1024;
+
+  async function inflate(u8, limit) {
+    var offset = 0, used = 0, output = new Uint8Array(limit);
+    var input = new ReadableStream({
+      pull: function (controller) {
+        if (offset === u8.length) { controller.close(); return; }
+        var end = Math.min(offset + 1024, u8.length);
+        controller.enqueue(u8.subarray(offset, end));
+        offset = end;
+      }
+    });
+    var reader = input.pipeThrough(new DecompressionStream('deflate')).getReader();
     try {
-      var stream = new Blob([u8]).stream().pipeThrough(new DecompressionStream('deflate'));
-      return new Response(stream).arrayBuffer().then(function (b) { return new Uint8Array(b); }, function () { return null; });
-    } catch (e) { return Promise.resolve(null); }
-  }
-  function readPng(u8, out) {
-    var i = 8, d = view(u8), jobs = [];
-    function entry(key, value) {
-      if (key === 'XML:com.adobe.xmp') readXmp(value, out);
-      else if (PNG_KEYS[key.toLowerCase()]) put(out, PNG_KEYS[key.toLowerCase()], value);
+      while (true) {
+        var chunk = await reader.read();
+        if (chunk.done) return output.subarray(0, used);
+        if (chunk.value.length > limit - used) {
+          await reader.cancel();
+          return null;
+        }
+        output.set(chunk.value, used);
+        used += chunk.value.length;
+      }
+    } catch (e) {
+      return null;
+    } finally {
+      reader.releaseLock();
     }
+  }
+  async function readPng(u8, out) {
+    var i = 8, d = view(u8), remaining = MAX_PNG_TEXT_TOTAL;
     while (i + 8 <= u8.length) {
       var size = d.getUint32(i), kind = text(u8.subarray(i + 4, i + 8), 'latin1'), body = u8.subarray(i + 8, i + 8 + size);
       i += 12 + size;
-      var z = body.indexOf(0);
       if (kind === 'eXIf') { readTiff(body, out); continue; }
-      if (z < 0 || (kind !== 'tEXt' && kind !== 'zTXt' && kind !== 'iTXt')) continue;
-      var key = text(body.subarray(0, z), 'latin1'), rest = body.subarray(z + 1);
-      if (kind === 'tEXt') entry(key, text(rest, 'latin1'));
-      else if (kind === 'zTXt') (function (k, r) { jobs.push(inflate(r.subarray(1)).then(function (b) { if (b) entry(k, text(b, 'latin1')); })); })(key, rest);
-      else {
-        var packed = rest[0] === 1; rest = rest.subarray(2);
-        rest = rest.subarray(rest.indexOf(0) + 1); rest = rest.subarray(rest.indexOf(0) + 1);
-        if (packed) (function (k, r) { jobs.push(inflate(r).then(function (b) { if (b) entry(k, text(b)); })); })(key, rest);
-        else entry(key, text(rest));
+      if (!remaining || (kind !== 'tEXt' && kind !== 'zTXt' && kind !== 'iTXt')) continue;
+      var z = body.subarray(0, 80).indexOf(0);
+      if (z <= 0) continue;
+      var key = text(body.subarray(0, z), 'latin1'), raw = body.subarray(z + 1);
+      var lookup = key.toLowerCase(), isXmp = key === 'XML:com.adobe.xmp';
+      if (!isXmp && !Object.prototype.hasOwnProperty.call(PNG_KEYS, lookup)) continue;
+      var packed = kind === 'zTXt';
+      if (packed) {
+        if (raw[0] !== 0) continue;
+        raw = raw.subarray(1);
+      } else if (kind === 'iTXt') {
+        if ((raw[0] !== 0 && raw[0] !== 1) || raw[1] !== 0) continue;
+        packed = raw[0] === 1;
+        var languageEnd = raw.indexOf(0, 2);
+        if (languageEnd < 0) continue;
+        var keywordEnd = raw.indexOf(0, languageEnd + 1);
+        if (keywordEnd < 0) continue;
+        raw = raw.subarray(keywordEnd + 1);
       }
+      var limit = Math.min(remaining, MAX_PNG_TEXT_CHUNK);
+      if (packed) {
+        if (typeof DecompressionStream === 'undefined') continue;
+        raw = await inflate(raw, limit);
+        if (!raw) { remaining -= limit; continue; }
+      }
+      remaining -= Math.min(limit, raw.length);
+      if (raw.length > limit) continue;
+      var value = text(raw, kind === 'iTXt' ? undefined : 'latin1');
+      if (isXmp) readXmp(value, out);
+      else put(out, PNG_KEYS[lookup], value);
     }
-    return Promise.all(jobs);
   }
   function readWebp(u8, out) {
     var i = 12, d = view(u8);

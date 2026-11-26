@@ -66,6 +66,8 @@ TEXT_EXT = HTML_EXT | {
 }
 MAX_TEXT_BYTES = 2 * 1024 * 1024
 MAX_IMAGE_BYTES = 40 * 1024 * 1024
+MAX_PNG_TEXT_CHUNK = 64 * 1024
+MAX_PNG_TEXT_TOTAL = 256 * 1024
 NOTE = ("Edit with the Photo Credit Editor. One entry per picture. "
         "A picture with a blank credit stays off the credits page.")
 FIELDS = ("file", "title", "credit", "source", "license", "link")
@@ -252,37 +254,58 @@ PNG_KEYS = {"author": "artist", "artist": "artist", "copyright": "copyright", "t
 
 def _png(data, out):
     i = 8
+    remaining = MAX_PNG_TEXT_TOTAL
     while i + 8 <= len(data):
         size = struct.unpack(">I", data[i:i + 4])[0]
         kind = data[i + 4:i + 8]
         body = data[i + 8:i + 8 + size]
         i += 12 + size
-        try:
-            if kind == b"tEXt":
-                key, _, text = body.partition(b"\x00")
-                text = text.decode("latin-1")
-            elif kind == b"zTXt":
-                key, _, rest = body.partition(b"\x00")
-                text = zlib.decompress(rest[1:]).decode("latin-1")
-            elif kind == b"iTXt":
-                key, _, rest = body.partition(b"\x00")
-                packed = rest[0:1] == b"\x01"
-                rest = rest[2:]
-                _, _, rest = rest.partition(b"\x00")       # language tag
-                _, _, text = rest.partition(b"\x00")       # translated keyword
-                text = (zlib.decompress(text) if packed else text).decode("utf-8", "ignore")
-            elif kind == b"eXIf":
-                _tiff(body, out)
-                continue
-            else:
-                continue
-        except (zlib.error, ValueError):
+        if kind == b"eXIf":
+            _tiff(body, out)
             continue
-        key = key.decode("latin-1")
-        if key == "XML:com.adobe.xmp":
+        if not remaining or kind not in (b"tEXt", b"zTXt", b"iTXt"):
+            continue
+        key_end = body.find(b"\x00", 0, 80)
+        if key_end <= 0:
+            continue
+        key = body[:key_end]
+        field = PNG_KEYS.get(key.decode("latin-1").lower())
+        is_xmp = key == b"XML:com.adobe.xmp"
+        if not (field or is_xmp):
+            continue
+        raw = body[key_end + 1:]
+        packed = kind == b"zTXt"
+        if packed:
+            if raw[:1] != b"\x00":
+                continue
+            raw = raw[1:]
+        elif kind == b"iTXt":
+            if raw[:2] not in (b"\x00\x00", b"\x01\x00"):
+                continue
+            packed = raw[0] == 1
+            _, language_end, rest = raw[2:].partition(b"\x00")
+            _, keyword_end, raw = rest.partition(b"\x00")
+            if not language_end or not keyword_end:
+                continue
+        limit = min(remaining, MAX_PNG_TEXT_CHUNK)
+        if packed:
+            try:
+                inflater = zlib.decompressobj()
+                raw = inflater.decompress(raw, limit + 1)
+            except zlib.error:
+                remaining -= limit
+                continue
+            if not inflater.eof:
+                remaining -= limit
+                continue
+        remaining -= min(limit, len(raw))
+        if len(raw) > limit:
+            continue
+        text = raw.decode("utf-8", "ignore") if kind == b"iTXt" else raw.decode("latin-1")
+        if is_xmp:
             _xmp(text.encode("utf-8"), out)
-        elif key.lower() in PNG_KEYS:
-            _put(out, PNG_KEYS[key.lower()], text)
+        else:
+            _put(out, field, text)
 
 
 def _jpeg(data, out):
