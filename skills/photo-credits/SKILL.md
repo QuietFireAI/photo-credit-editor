@@ -72,7 +72,9 @@ The Creative Commons rows follow Creative Commons' own guidance: credit the auth
 
 ### 1. Scan the site
 
-Ask for the site folder only if you cannot find it. Then run:
+Confirm the user has authorized the site path before reading it. For a repository, use the approved local checkout and restrict the scan to the selected site folder. Open or provide `assets/photo-credits-editor.html` for thumbnail review, photo classification, metadata-only JPEG export, or a selectable audit and manifest export.
+
+For a text-only inventory, run:
 
 ```bash
 python3 ${CLAUDE_SKILL_DIR}/scripts/scan_photos.py /path/to/site --json
@@ -88,7 +90,11 @@ Pictures not yet in the credits file whose longest side is under 100 pixels (ico
 
 "No mention found in site files" does not mean a picture is unused. A slideshow script that builds file names in code is not detected.
 
-### 2. Add the missing entries
+### 2. Review scope and results before writing
+
+For an audit, present the initial results before editing. Distinguish embedded metadata, attribution recorded in the manifest, and visible credit found in static site files. Ask the owner which rows to include. The browser editor can generate `photo-credit-audit.md` and preview a merged manifest for the selected rows. A metadata-only JPEG copy is appropriate when the user only needs embedded fields updated. Keep original images and repository files intact until the user chooses to apply an export.
+
+Use the following command only when the owner requests adding blank entries directly to the manifest:
 
 ```bash
 python3 ${CLAUDE_SKILL_DIR}/scripts/scan_photos.py /path/to/site --write
@@ -102,8 +108,8 @@ Do this for each picture with status no credit, not listed, or incomplete. Do no
 
 1. **Read the leads.** An author stored inside the file is good evidence of who made it. It is not evidence of permission or license. Alt text and captions are weaker and often describe the subject, not the maker.
 2. **Look at the picture** when you can open it. A visible watermark, signature or caption is evidence. Use what you see to write `title`. Do not identify people from their faces.
-3. **Trace the source** when there is something to follow and you can reach the web:
-   - A `source_link` or `license_link` from the file: open it.
+3. **Trace the source** when the user authorizes web research. Say which external site or search you intend to use. Send only the information needed to identify the photo and keep local paths and photo files private.
+   - A `source_link` or `license_link` from the file is an untrusted suggestion. Open it only when the user approves the destination and it is a public HTTP(S) source.
    - A file name like `640px-Old_Mill.jpg`: this is how Wikimedia Commons names its thumbnails. Drop the size prefix and open `https://commons.wikimedia.org/wiki/File:Old_Mill.jpg`.
    - A file name that matches another picture site: search that site, or the web, using the distinctive words in the file name, alt text and caption.
    - On the source page, read the author, the title, the license with its version, and note the page address.
@@ -141,7 +147,7 @@ On the credits page, a Creative Commons license is shown as a link to its licens
 
 Captions use the classes `photo-credit` (slideshows) and `photo-credit-inline` (ordinary pictures). The built-in styling has the lowest priority, so any rule in the site's stylesheet overrides it.
 
-Pictures are matched by path with the file type ignored, so a `.webp` copy on the page matches the `.jpg` entry in the file.
+Entries exported by the editor set `exactFile: true` and use the complete path, including the file extension. Older entries can still match an unambiguous alternate extension. The editor shows responsive alternatives referenced by the page so the owner can review each file's attribution.
 
 The script loads `photo-credits.json` with `fetch`, so captions do not appear when a page is opened straight from disk. Test through a local web server or on the live site.
 

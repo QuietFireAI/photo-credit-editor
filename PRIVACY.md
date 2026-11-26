@@ -1,6 +1,6 @@
 # Privacy Policy
 
-**Photo Credit Editor** is published by QuietFireAI. Last updated: November 12, 2026.
+**Photo Credit Editor** is published by QuietFireAI. Last updated: November 26, 2026.
 
 ## Summary
 
@@ -12,7 +12,7 @@ This plugin collects no personal data. QuietFireAI receives nothing from it: no 
 | --- | --- | --- | --- | --- |
 | The skill (instructions for Claude) | In your Claude session | The website folder you point Claude to | Nothing of its own | Nothing |
 | `scan_photos.py` | On your computer, or in Claude's code sandbox | Pictures and text files inside the website folder you name, including the author and copyright stored inside pictures | Only `photo-credits.json`, and only when run with `--write` | Nothing. It makes no network requests |
-| Photo Credit Editor | In your web browser | The pictures in the folder you choose, including the author and copyright stored inside them, and `photo-credits.json` | Unsaved work, in that browser's local storage on your computer | Nothing. Pictures and credits are not uploaded. A link to Wikimedia Commons is offered for files named like its downloads, and opens only if you click it |
+| Photo Credit Editor | In your web browser | Photos, their embedded metadata, local HTML and CSS, and `photo-credits.json` in the folder you authorize | Unsaved work, in that browser's local storage. Optional audit, manifest, JPEG copy, and banner downloads stay on your computer | Nothing. External links open only if you click them |
 | `photo-credit.js` | On your website, in each visitor's browser | `photo-credits.json` from your own website | Nothing. It sets no cookies | Nothing. It contacts no server other than your own website |
 
 ## Information you put in a credits file

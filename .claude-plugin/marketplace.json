@@ -9,7 +9,7 @@
     {
       "name": "photo-credit-editor",
       "source": "./",
-      "description": "Make sure every picture on a website carries a proper credit: find the ones without, work out who made each and under what license, write the attribution, and show it on the site."
+      "description": "Audit photos in a folder you authorize. Review thumbnails, embedded metadata and missing credits, then export selected results as a Markdown audit or a merged credits manifest."
     }
   ]
 }

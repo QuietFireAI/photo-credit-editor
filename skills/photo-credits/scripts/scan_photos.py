@@ -312,6 +312,7 @@ def _png(data, out):
 
 def _jpeg(data, out):
     i = 2
+    xmp = {}
     while i + 4 <= len(data) and data[i] == 0xFF:
         marker = data[i + 1]
         if marker in (0xD8, 0x01) or 0xD0 <= marker <= 0xD7:
@@ -324,10 +325,11 @@ def _jpeg(data, out):
         if marker == 0xE1 and body[:6] == b"Exif\x00\x00":
             _tiff(body[6:], out)
         elif marker == 0xE1 and body[:29] == b"http://ns.adobe.com/xap/1.0/\x00":
-            _xmp(body[29:], out)
+            _xmp(body[29:], xmp)
         elif marker == 0xED and body[:14] == b"Photoshop 3.0\x00":
             _photoshop(body[14:], out)
         i += 2 + size
+    out.update(xmp)
 
 
 def _webp(data, out):
@@ -499,16 +501,19 @@ class _Page(HTMLParser):
         super().close()
 
 
-def norm(path):
-    """Compare paths the way the site script does: forward slashes, no leading ./ or /, lower case."""
+def exact_path(path):
     p = str(path or "").strip().replace("\\", "/")
     while p.startswith("./") or p.startswith("/"):
         p = p[2:] if p.startswith("./") else p[1:]
-    return p.lower()
+    return p
+
+
+def norm(path):
+    return exact_path(path).lower()
 
 
 def stem(key):
-    """The site script ignores the file type, so mill.webp and mill.jpg are one picture with one credit."""
+    """Group alternate extensions for legacy manifest entries."""
     return os.path.splitext(key)[0]
 
 
@@ -556,13 +561,16 @@ def walk(site):
 class Pictures:
     """Works out which picture an address written in a page, stylesheet or script points at."""
 
-    def __init__(self, images):
-        self.by_path = {}                                  # path without file type -> same
-        self.by_name = {}                                  # file name without type -> paths
+    def __init__(self, images, picture_key):
+        self.exact = {}
+        self.by_path = {}
+        self.by_name = {}
         for rel, _ in images:
-            key = stem(norm(rel))
-            self.by_path[key] = key
-            self.by_name.setdefault(posixpath.basename(key), set()).add(key)
+            key = picture_key(rel)
+            self.exact[exact_path(rel)] = key
+            if key[0] == "legacy":
+                self.by_path[key[1]] = key
+                self.by_name.setdefault(posixpath.basename(key[1]), set()).add(key)
 
     def find(self, address, written_in, sure_only=False):
         """The pictures an address may mean. With sure_only, an address that fits several pictures fits none."""
@@ -570,13 +578,17 @@ class Pictures:
         a = re.sub(r"^(?:[a-z][a-z0-9+.-]*:)?//[^/]*", "", a, flags=re.I)      # drop the site name, if any
         tail = re.sub(r"^(?:\.\.?/)+", "", a.lstrip("/"))
         tries = [a.lstrip("/")] if a.startswith("/") else [posixpath.join(posixpath.dirname(written_in), a), tail]
-        for t in tries:                                    # 1. the exact path, from the file or from the site's top folder
-            key = stem(norm(posixpath.normpath(t)))
+        normalized = [posixpath.normpath(t) for t in tries]
+        for t in normalized:
+            if exact_path(t) in self.exact:
+                return [self.exact[exact_path(t)]]
+        for t in normalized:
+            key = stem(norm(t))
             if key in self.by_path:
-                return [key]
+                return [self.by_path[key]]
         key = stem(norm(posixpath.normpath(tail)))
         if "/" in key:                                     # 2. the end of a path
-            hits = [k for k in self.by_path if k.endswith("/" + key)]
+            hits = [value for path, value in self.by_path.items() if path.endswith("/" + key)]
         else:                                              # 3. a bare file name
             hits = sorted(self.by_name.get(key, ()))
         if len(hits) == 1 or (hits and not sure_only):
@@ -765,8 +777,14 @@ def main():
         return 2
     existed = original_manifest is not None
 
+    exact_files = {exact_path(p.get("file")) for p in manifest["photos"] if p.get("exactFile") is True and p.get("file")}
+
+    def picture_key(path):
+        literal = exact_path(path)
+        return ("exact", literal) if literal in exact_files else ("legacy", stem(norm(path)))
+
     images, texts = walk(site)
-    refs, context = read_site_text(texts, manifest_path, Pictures(images))
+    refs, context = read_site_text(texts, manifest_path, Pictures(images, picture_key))
     full_path = dict(images)
 
     excluded = 0
@@ -784,17 +802,18 @@ def main():
             continue
         kept.append((rel, size))
 
-    all_on_disk = {stem(norm(rel)) for rel, _ in images}
+    all_on_disk = {picture_key(rel) for rel, _ in images}
     listed = {}
     for p in manifest["photos"]:
-        k = stem(norm(p.get("file")))
-        if k and k not in listed:
+        file = p.get("file")
+        k = ("exact", exact_path(file)) if p.get("exactFile") is True else ("legacy", stem(norm(file)))
+        if k[1] and k not in listed:
             listed[k] = p
 
     files_found = len(kept)
     groups = {}
     for rel, size in kept:
-        groups.setdefault(stem(norm(rel)), []).append((rel, size))
+        groups.setdefault(picture_key(rel), []).append((rel, size))
     kept = []
     for k, members in groups.items():
         entry = listed.get(k)
@@ -802,7 +821,7 @@ def main():
         kept.append((named or members)[0])
 
     def used_on(rel):
-        return sorted(refs.get(stem(norm(rel)), ()))
+        return sorted(refs.get(picture_key(rel), ()))
 
     dims = {rel: read_dims(full_path[rel]) for rel, _ in kept}
 
@@ -815,7 +834,7 @@ def main():
         embedded = read_embedded(full_path[rel])
         if embedded:
             found["inside_the_file"] = embedded
-        on_page = context.get(stem(norm(rel)))
+        on_page = context.get(picture_key(rel))
         if on_page:
             found["on_the_page"] = on_page
         hints = name_hints(rel)
@@ -825,7 +844,7 @@ def main():
 
     complete, incomplete, skipped, blank, unlisted, small = [], [], [], [], [], []
     for rel, size in kept:
-        entry = listed.get(stem(norm(rel)))
+        entry = listed.get(picture_key(rel))
         row = {"file": rel, "kb": round(size / 1024, 1), "px": px(rel), "used_on": used_on(rel)}
         d = dims.get(rel)
         if entry is None and args.min_px and d and max(d) < args.min_px:
@@ -898,7 +917,7 @@ def main():
     print()
     notes = []
     if files_found != len(kept):
-        notes.append("%s; the same picture in two file types counts once" % count(files_found, "file"))
+        notes.append("%s; legacy entries can group alternate file types" % count(files_found, "file"))
     if excluded:
         notes.append("%d more excluded" % excluded)
     if small:

@@ -45,7 +45,11 @@
   };
 
   var entries = [];   // { key, base, data }
-  var cache = {};
+  var cache = new Map();
+  var manifestRoot = '';
+  try {
+    manifestRoot = decode(new URL('.', new URL(cfg.manifest, document.baseURI)).pathname).replace(/^\/+/, '');
+  } catch (error) { /* A relative root path is the default. */ }
 
   function stripExt(p) { return p.replace(/\.[a-z0-9]+$/i, ''); }
   function baseName(p) { return p.slice(p.lastIndexOf('/') + 1); }
@@ -53,8 +57,7 @@
 
   /* A path as written in photo-credits.json, relative to the site's top folder. */
   function entryKey(file) {
-    var p = decode(String(file || '').trim().split(/[?#]/)[0]).replace(/\\/g, '/').replace(/^(\.\/|\/)+/, '');
-    return stripExt(p).toLowerCase();
+    return String(file || '').trim().replace(/\\/g, '/').replace(/^(\.\/|\/)+/, '');
   }
   /* A picture address as the browser sees it: src, or a CSS background-image value. */
   function urlKey(u) {
@@ -63,28 +66,35 @@
     if (m) u = m[2];
     if (!u || u === 'none') return '';
     try { u = new URL(u, document.baseURI).pathname; } catch (e) { u = u.split(/[?#]/)[0]; }
-    return stripExt(decode(u).replace(/^\/+/, '')).toLowerCase();
+    return decode(u).replace(/^\/+/, '');
   }
 
-  /* Find the credit for a picture address. The file type is ignored, so a .webp copy matches the .jpg entry. */
+  /* Prefer a literal path. Keep extension and basename fallback for older records. */
   function find(u) {
     var k = urlKey(u);
     if (!k) return null;
-    if (k in cache) return cache[k];
+    if (cache.has(k)) return cache.get(k);
     var best = null, i;
     for (i = 0; i < entries.length; i++) {
       var e = entries[i];
-      if (k === e.key || k.slice(-(e.key.length + 1)) === '/' + e.key) {
+      if (k === manifestRoot + e.key || (!e.data.exactFile && (k === e.key || k.endsWith('/' + e.key)))) {
         if (!best || e.key.length > best.key.length) best = e;
       }
     }
     if (!best) {
-      var b = baseName(k), hits = [];
-      for (i = 0; i < entries.length; i++) if (entries[i].base === b) hits.push(entries[i]);
-      if (hits.length === 1) best = hits[0];
+      var stem = stripExt(k).toLowerCase(), b = baseName(stem), samePath = [], sameName = [];
+      entries.forEach(function (entry) {
+        if (entry.data.exactFile) return;
+        if (stem === entry.legacyKey || stem.endsWith('/' + entry.legacyKey)) samePath.push(entry);
+        if (entry.base === b) sameName.push(entry);
+      });
+      samePath.sort(function (a, b) { return b.legacyKey.length - a.legacyKey.length; });
+      if (samePath.length === 1 || (samePath.length > 1 && samePath[0].legacyKey.length > samePath[1].legacyKey.length)) best = samePath[0];
+      else if (!samePath.length && sameName.length === 1) best = sameName[0];
     }
-    cache[k] = best ? best.data : null;
-    return cache[k];
+    var result = best ? best.data : null;
+    cache.set(k, result);
+    return result;
   }
 
   function line(p) { return p.credit + (p.source ? ', ' + p.source : ''); }
@@ -229,7 +239,14 @@
       if (img._photoCreditFor === signature) return;        // nothing about this picture changed
       img._photoCreditFor = signature;
       var p = null;
-      for (var i = 0; i < list.length && !p; i++) { var hit = find(list[i]); if (shown(hit)) p = hit; }
+      var active = img.currentSrc ? find(img.currentSrc) : null;
+      if (active) p = shown(active) ? active : null;
+      else {
+        for (var i = 0; i < list.length && !p; i++) {
+          var hit = find(list[i]);
+          if (shown(hit) && (!img.currentSrc || !hit.exactFile)) p = hit;
+        }
+      }
       var cap = img._photoCreditCaption;
       if (!p) {                                             // the picture changed to one with no credit
         if (cap) { cap.remove(); img._photoCreditCaption = null; }
@@ -290,9 +307,10 @@
     var photos = d && Array.isArray(d.photos) ? d.photos : (Array.isArray(d) ? d : []);
     photos = photos.filter(function (p) { return p && typeof p === 'object' && p.file; });
     photos.forEach(function (p) {
-      if (!credited(p)) return;      // every credited picture is matched, so a page-only one is never mistaken for another
+      if (!credited(p) && !p.exactFile) return;
       var k = entryKey(p.file);
-      if (k) entries.push({ key: k, base: baseName(k), data: p });
+      var legacyKey = stripExt(decode(k.split(/[?#]/)[0])).toLowerCase();
+      if (k) entries.push({ key: k, legacyKey: legacyKey, base: baseName(legacyKey), data: p });
     });
     addStyle();
     fillList(photos);
@@ -302,7 +320,7 @@
   function run() {
     /* The hour stamp lets a freshly uploaded photo-credits.json show up within an hour despite caching. */
     var url = cfg.manifest + (cfg.manifest.indexOf('?') === -1 ? '?' : '&') + 'v=' + Math.floor(Date.now() / 36e5);
-    fetch(url).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).then(start).catch(function (e) {
+    fetch(url, { mode: 'same-origin' }).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).then(start).catch(function (e) {
       if (window.console && console.warn) console.warn('photo-credit.js: could not read ' + cfg.manifest + ' (' + e.message + ')');
     });
   }
