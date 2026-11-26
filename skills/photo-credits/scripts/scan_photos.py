@@ -43,13 +43,16 @@ With --write, existing entries are never changed or removed: new blank entries a
 No network access.
 """
 import argparse
+import errno
 import fnmatch
 import json
 import os
 import posixpath
 import re
+import stat
 import struct
 import sys
+import tempfile
 import zlib
 import xml.etree.ElementTree as ET
 from html.parser import HTMLParser
@@ -63,10 +66,14 @@ TEXT_EXT = HTML_EXT | {
 }
 MAX_TEXT_BYTES = 2 * 1024 * 1024
 MAX_IMAGE_BYTES = 40 * 1024 * 1024
+MAX_PNG_TEXT_CHUNK = 64 * 1024
+MAX_PNG_TEXT_TOTAL = 256 * 1024
 NOTE = ("Edit with the Photo Credit Editor. One entry per picture. "
         "A picture with a blank credit stays off the credits page.")
 FIELDS = ("file", "title", "credit", "source", "license", "link")
-REF = re.compile(r"[^\s\"'()<>=,;\\?#]+\.(?:jpe?g|png|webp|gif|avif)", re.IGNORECASE)
+REF_TOKEN = re.compile(r"[^\s\"'()<>=,;\\?#]+")
+REF_EXTENSION = re.compile(r"\.(?:jpe?g|png|webp|gif|avif)", re.IGNORECASE)
+TERMINAL_CONTROLS = {code: "\\x%02x" % code for code in (*range(32), *range(127, 160))}
 
 # File names that match how a picture site names its downloads. A match is a lead, not proof.
 NAME_HINTS = (
@@ -83,6 +90,34 @@ NAME_HINTS = (
     (re.compile(r"freepik", re.I), "Freepik"),
     (re.compile(r"flickr", re.I), "Flickr"),
 )
+
+
+def checked_stat(path, is_type=stat.S_ISREG):
+    """Accept regular files or directories reached without following links."""
+    info = os.lstat(path)
+    reparse = getattr(info, "st_file_attributes", 0) & stat.FILE_ATTRIBUTE_REPARSE_POINT
+    if (reparse or not is_type(info.st_mode)
+            or os.path.normcase(os.path.realpath(path)) != os.path.normcase(path)):
+        raise OSError(errno.EINVAL, "Expected an ordinary path without links", path)
+    return info
+
+
+def open_regular(path, mode, **kwargs):
+    def opener(name, flags):
+        before = checked_stat(name)
+        flags |= getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
+        fd = os.open(name, flags)
+        try:
+            actual = os.fstat(fd)
+            if (not stat.S_ISREG(actual.st_mode) or not os.path.samestat(before, actual)
+                    or not os.path.samestat(checked_stat(name), actual)):
+                raise OSError(errno.EAGAIN, "File changed while opening", name)
+        except BaseException:
+            os.close(fd)
+            raise
+        return fd
+
+    return open(path, mode, opener=opener, **kwargs)
 
 
 # ---------------------------------------------------------------- facts stored inside a picture file
@@ -221,41 +256,63 @@ PNG_KEYS = {"author": "artist", "artist": "artist", "copyright": "copyright", "t
 
 def _png(data, out):
     i = 8
+    remaining = MAX_PNG_TEXT_TOTAL
     while i + 8 <= len(data):
         size = struct.unpack(">I", data[i:i + 4])[0]
         kind = data[i + 4:i + 8]
         body = data[i + 8:i + 8 + size]
         i += 12 + size
-        try:
-            if kind == b"tEXt":
-                key, _, text = body.partition(b"\x00")
-                text = text.decode("latin-1")
-            elif kind == b"zTXt":
-                key, _, rest = body.partition(b"\x00")
-                text = zlib.decompress(rest[1:]).decode("latin-1")
-            elif kind == b"iTXt":
-                key, _, rest = body.partition(b"\x00")
-                packed = rest[0:1] == b"\x01"
-                rest = rest[2:]
-                _, _, rest = rest.partition(b"\x00")       # language tag
-                _, _, text = rest.partition(b"\x00")       # translated keyword
-                text = (zlib.decompress(text) if packed else text).decode("utf-8", "ignore")
-            elif kind == b"eXIf":
-                _tiff(body, out)
-                continue
-            else:
-                continue
-        except (zlib.error, ValueError):
+        if kind == b"eXIf":
+            _tiff(body, out)
             continue
-        key = key.decode("latin-1")
-        if key == "XML:com.adobe.xmp":
+        if not remaining or kind not in (b"tEXt", b"zTXt", b"iTXt"):
+            continue
+        key_end = body.find(b"\x00", 0, 80)
+        if key_end <= 0:
+            continue
+        key = body[:key_end]
+        field = PNG_KEYS.get(key.decode("latin-1").lower())
+        is_xmp = key == b"XML:com.adobe.xmp"
+        if not (field or is_xmp):
+            continue
+        raw = body[key_end + 1:]
+        packed = kind == b"zTXt"
+        if packed:
+            if raw[:1] != b"\x00":
+                continue
+            raw = raw[1:]
+        elif kind == b"iTXt":
+            if raw[:2] not in (b"\x00\x00", b"\x01\x00"):
+                continue
+            packed = raw[0] == 1
+            _, language_end, rest = raw[2:].partition(b"\x00")
+            _, keyword_end, raw = rest.partition(b"\x00")
+            if not language_end or not keyword_end:
+                continue
+        limit = min(remaining, MAX_PNG_TEXT_CHUNK)
+        if packed:
+            try:
+                inflater = zlib.decompressobj()
+                raw = inflater.decompress(raw, limit + 1)
+            except zlib.error:
+                remaining -= limit
+                continue
+            if not inflater.eof:
+                remaining -= limit
+                continue
+        remaining -= min(limit, len(raw))
+        if len(raw) > limit:
+            continue
+        text = raw.decode("utf-8", "ignore") if kind == b"iTXt" else raw.decode("latin-1")
+        if is_xmp:
             _xmp(text.encode("utf-8"), out)
-        elif key.lower() in PNG_KEYS:
-            _put(out, PNG_KEYS[key.lower()], text)
+        else:
+            _put(out, field, text)
 
 
 def _jpeg(data, out):
     i = 2
+    xmp = {}
     while i + 4 <= len(data) and data[i] == 0xFF:
         marker = data[i + 1]
         if marker in (0xD8, 0x01) or 0xD0 <= marker <= 0xD7:
@@ -268,10 +325,11 @@ def _jpeg(data, out):
         if marker == 0xE1 and body[:6] == b"Exif\x00\x00":
             _tiff(body[6:], out)
         elif marker == 0xE1 and body[:29] == b"http://ns.adobe.com/xap/1.0/\x00":
-            _xmp(body[29:], out)
+            _xmp(body[29:], xmp)
         elif marker == 0xED and body[:14] == b"Photoshop 3.0\x00":
             _photoshop(body[14:], out)
         i += 2 + size
+    out.update(xmp)
 
 
 def _webp(data, out):
@@ -291,10 +349,12 @@ def read_embedded(path):
     """Author, copyright, title and similar facts stored inside a picture file. Empty when there are none."""
     out = {}
     try:
-        if os.path.getsize(path) > MAX_IMAGE_BYTES:
+        with open_regular(path, "rb") as fh:
+            if os.fstat(fh.fileno()).st_size > MAX_IMAGE_BYTES:
+                return out
+            data = fh.read(MAX_IMAGE_BYTES + 1)
+        if len(data) > MAX_IMAGE_BYTES:
             return out
-        with open(path, "rb") as fh:
-            data = fh.read()
     except OSError:
         return out
     try:
@@ -341,7 +401,7 @@ SOF = {0xC0, 0xC1, 0xC2, 0xC3, 0xC5, 0xC6, 0xC7, 0xC9, 0xCA, 0xCB, 0xCD, 0xCE, 0
 def read_dims(path):
     """(width, height) in pixels read from the file header, or None when it cannot be read."""
     try:
-        with open(path, "rb") as fh:
+        with open_regular(path, "rb") as fh:
             data = fh.read(512 * 1024)
     except OSError:
         return None
@@ -441,16 +501,19 @@ class _Page(HTMLParser):
         super().close()
 
 
-def norm(path):
-    """Compare paths the way the site script does: forward slashes, no leading ./ or /, lower case."""
+def exact_path(path):
     p = str(path or "").strip().replace("\\", "/")
     while p.startswith("./") or p.startswith("/"):
         p = p[2:] if p.startswith("./") else p[1:]
-    return p.lower()
+    return p
+
+
+def norm(path):
+    return exact_path(path).lower()
 
 
 def stem(key):
-    """The site script ignores the file type, so mill.webp and mill.jpg are one picture with one credit."""
+    """Group alternate extensions for legacy manifest entries."""
     return os.path.splitext(key)[0]
 
 
@@ -466,16 +529,31 @@ def natural(text):
 def walk(site):
     images, texts = [], []
     for root, dirs, files in os.walk(site):
-        dirs[:] = sorted((d for d in dirs if not d.startswith(".") and d != "node_modules"), key=natural)
+        safe_dirs = []
+        for directory in dirs:
+            if directory.startswith(".") or directory == "node_modules":
+                continue
+            try:
+                checked_stat(os.path.join(root, directory), stat.S_ISDIR)
+            except OSError:
+                continue
+            safe_dirs.append(directory)
+        dirs[:] = sorted(safe_dirs, key=natural)
         for name in sorted(files, key=natural):
             if name.startswith("."):
                 continue
             full = os.path.join(root, name)
             rel = os.path.relpath(full, site).replace(os.sep, "/")
             ext = os.path.splitext(name)[1].lower()
+            if ext not in IMAGE_EXT and ext not in TEXT_EXT:
+                continue
+            try:
+                checked_stat(full)
+            except OSError:
+                continue
             if ext in IMAGE_EXT:
                 images.append((rel, full))
-            elif ext in TEXT_EXT:
+            else:
                 texts.append((rel, full))
     return images, texts
 
@@ -483,13 +561,16 @@ def walk(site):
 class Pictures:
     """Works out which picture an address written in a page, stylesheet or script points at."""
 
-    def __init__(self, images):
-        self.by_path = {}                                  # path without file type -> same
-        self.by_name = {}                                  # file name without type -> paths
+    def __init__(self, images, picture_key):
+        self.exact = {}
+        self.by_path = {}
+        self.by_name = {}
         for rel, _ in images:
-            key = stem(norm(rel))
-            self.by_path[key] = key
-            self.by_name.setdefault(posixpath.basename(key), set()).add(key)
+            key = picture_key(rel)
+            self.exact[exact_path(rel)] = key
+            if key[0] == "legacy":
+                self.by_path[key[1]] = key
+                self.by_name.setdefault(posixpath.basename(key[1]), set()).add(key)
 
     def find(self, address, written_in, sure_only=False):
         """The pictures an address may mean. With sure_only, an address that fits several pictures fits none."""
@@ -497,18 +578,33 @@ class Pictures:
         a = re.sub(r"^(?:[a-z][a-z0-9+.-]*:)?//[^/]*", "", a, flags=re.I)      # drop the site name, if any
         tail = re.sub(r"^(?:\.\.?/)+", "", a.lstrip("/"))
         tries = [a.lstrip("/")] if a.startswith("/") else [posixpath.join(posixpath.dirname(written_in), a), tail]
-        for t in tries:                                    # 1. the exact path, from the file or from the site's top folder
-            key = stem(norm(posixpath.normpath(t)))
+        normalized = [posixpath.normpath(t) for t in tries]
+        for t in normalized:
+            if exact_path(t) in self.exact:
+                return [self.exact[exact_path(t)]]
+        for t in normalized:
+            key = stem(norm(t))
             if key in self.by_path:
-                return [key]
+                return [self.by_path[key]]
         key = stem(norm(posixpath.normpath(tail)))
         if "/" in key:                                     # 2. the end of a path
-            hits = [k for k in self.by_path if k.endswith("/" + key)]
+            hits = [value for path, value in self.by_path.items() if path.endswith("/" + key)]
         else:                                              # 3. a bare file name
             hits = sorted(self.by_name.get(key, ()))
         if len(hits) == 1 or (hits and not sure_only):
             return hits
         return []
+
+
+def image_references(body):
+    for token in REF_TOKEN.finditer(body):
+        start, end = token.span()
+        # Match the original greedy path rule by keeping the last image extension in each token.
+        last_end = start
+        for extension in REF_EXTENSION.finditer(body, start + 1, end):
+            last_end = extension.end()
+        if last_end > start:
+            yield body[start:last_end]
 
 
 def read_site_text(texts, manifest_abs, pictures):
@@ -518,13 +614,16 @@ def read_site_text(texts, manifest_abs, pictures):
         if os.path.abspath(full) == manifest_abs:
             continue
         try:
-            if os.path.getsize(full) > MAX_TEXT_BYTES:
+            with open_regular(full, "rb") as fh:
+                if os.fstat(fh.fileno()).st_size > MAX_TEXT_BYTES:
+                    continue
+                raw = fh.read(MAX_TEXT_BYTES + 1)
+            if len(raw) > MAX_TEXT_BYTES:
                 continue
-            with open(full, "r", encoding="utf-8", errors="ignore") as fh:
-                body = fh.read()
+            body = raw.decode("utf-8", errors="ignore")
         except OSError:
             continue
-        for hit in set(REF.findall(body)):
+        for hit in set(image_references(body)):
             for key in pictures.find(hit, rel):
                 refs.setdefault(key, set()).add(rel)
         if os.path.splitext(rel)[1].lower() in HTML_EXT:
@@ -595,16 +694,57 @@ def problems(entry):
 
 
 def load_manifest(path):
-    if not os.path.exists(path):
-        return {"note": NOTE, "photos": []}, False
-    with open(path, "r", encoding="utf-8-sig") as fh:
+    try:
+        handle = open_regular(path, "r", encoding="utf-8-sig")
+    except FileNotFoundError:
+        return {"note": NOTE, "photos": []}, None
+    with handle as fh:
+        info = os.fstat(fh.fileno())
         data = json.load(fh)
     if isinstance(data, list):
         data = {"note": NOTE, "photos": data}
     if not isinstance(data, dict) or not isinstance(data.get("photos"), list):
         raise ValueError('expected an object with a "photos" list')
     data["photos"] = [p for p in data["photos"] if isinstance(p, dict)]
-    return data, True
+    return data, info
+
+
+def save_manifest(path, manifest, original):
+    directory = os.path.dirname(path)
+    directory_info = checked_stat(directory, stat.S_ISDIR)
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", newline="\n",
+                                         dir=directory, prefix=".photo-credits-", delete=False) as fh:
+            temporary = fh.name
+            if original is not None and hasattr(os, "fchmod"):
+                os.fchmod(fh.fileno(), stat.S_IMODE(original.st_mode) & 0o777)
+            json.dump(manifest, fh, indent=1, ensure_ascii=False)
+            fh.write("\n")
+        try:
+            current = checked_stat(path)
+        except FileNotFoundError:
+            current = None
+        directory_changed = not os.path.samestat(directory_info, checked_stat(directory, stat.S_ISDIR))
+        manifest_changed = (current is None) != (original is None)
+        if current is not None and original is not None:
+            manifest_changed = (not os.path.samestat(current, original)
+                                or current.st_mtime_ns != original.st_mtime_ns
+                                or current.st_size != original.st_size)
+        if directory_changed or manifest_changed:
+            raise OSError(errno.EAGAIN, "Manifest changed during scan", path)
+        os.replace(temporary, path)
+        temporary = None
+    finally:
+        if temporary is not None:
+            try:
+                os.unlink(temporary)
+            except FileNotFoundError:
+                pass
+
+
+def terminal_text(value):
+    return str(value).translate(TERMINAL_CONTROLS)
 
 
 def main():
@@ -620,20 +760,31 @@ def main():
     ap.add_argument("--min-px", type=int, default=100)
     args = ap.parse_args()
 
-    site = os.path.abspath(args.site)
+    site = os.path.realpath(args.site)
     if not os.path.isdir(site):
-        print("Not a folder: %s" % args.site, file=sys.stderr)
+        print("Not a folder: %s" % terminal_text(args.site), file=sys.stderr)
         return 2
-    manifest_path = os.path.abspath(args.manifest) if args.manifest else os.path.join(site, "photo-credits.json")
+    if args.manifest:
+        parent, name = os.path.split(os.path.abspath(args.manifest))
+        manifest_path = os.path.join(os.path.realpath(parent), name)
+    else:
+        manifest_path = os.path.join(site, "photo-credits.json")
 
     try:
-        manifest, existed = load_manifest(manifest_path)
+        manifest, original_manifest = load_manifest(manifest_path)
     except (ValueError, OSError) as exc:
-        print("Could not read %s: %s" % (manifest_path, exc), file=sys.stderr)
+        print("Could not read %s: %s" % (terminal_text(manifest_path), terminal_text(exc)), file=sys.stderr)
         return 2
+    existed = original_manifest is not None
+
+    exact_files = {exact_path(p.get("file")) for p in manifest["photos"] if p.get("exactFile") is True and p.get("file")}
+
+    def picture_key(path):
+        literal = exact_path(path)
+        return ("exact", literal) if literal in exact_files else ("legacy", stem(norm(path)))
 
     images, texts = walk(site)
-    refs, context = read_site_text(texts, manifest_path, Pictures(images))
+    refs, context = read_site_text(texts, manifest_path, Pictures(images, picture_key))
     full_path = dict(images)
 
     excluded = 0
@@ -643,25 +794,26 @@ def main():
             excluded += 1
             continue
         try:
-            size = os.path.getsize(full)
+            size = checked_stat(full).st_size
         except OSError:
-            size = 0
+            continue
         if args.min_kb and size < args.min_kb * 1024:
             excluded += 1
             continue
         kept.append((rel, size))
 
-    all_on_disk = {stem(norm(rel)) for rel, _ in images}
+    all_on_disk = {picture_key(rel) for rel, _ in images}
     listed = {}
     for p in manifest["photos"]:
-        k = stem(norm(p.get("file")))
-        if k and k not in listed:
+        file = p.get("file")
+        k = ("exact", exact_path(file)) if p.get("exactFile") is True else ("legacy", stem(norm(file)))
+        if k[1] and k not in listed:
             listed[k] = p
 
     files_found = len(kept)
     groups = {}
     for rel, size in kept:
-        groups.setdefault(stem(norm(rel)), []).append((rel, size))
+        groups.setdefault(picture_key(rel), []).append((rel, size))
     kept = []
     for k, members in groups.items():
         entry = listed.get(k)
@@ -669,7 +821,7 @@ def main():
         kept.append((named or members)[0])
 
     def used_on(rel):
-        return sorted(refs.get(stem(norm(rel)), ()))
+        return sorted(refs.get(picture_key(rel), ()))
 
     dims = {rel: read_dims(full_path[rel]) for rel, _ in kept}
 
@@ -682,7 +834,7 @@ def main():
         embedded = read_embedded(full_path[rel])
         if embedded:
             found["inside_the_file"] = embedded
-        on_page = context.get(stem(norm(rel)))
+        on_page = context.get(picture_key(rel))
         if on_page:
             found["on_the_page"] = on_page
         hints = name_hints(rel)
@@ -692,7 +844,7 @@ def main():
 
     complete, incomplete, skipped, blank, unlisted, small = [], [], [], [], [], []
     for rel, size in kept:
-        entry = listed.get(stem(norm(rel)))
+        entry = listed.get(picture_key(rel))
         row = {"file": rel, "kb": round(size / 1024, 1), "px": px(rel), "used_on": used_on(rel)}
         d = dims.get(rel)
         if entry is None and args.min_px and d and max(d) < args.min_px:
@@ -728,9 +880,11 @@ def main():
             ordered = {"note": manifest["note"]}
             ordered.update({k: v for k, v in manifest.items() if k not in ("note", "photos")})
             ordered["photos"] = manifest["photos"]
-            with open(manifest_path, "w", encoding="utf-8", newline="\n") as fh:
-                json.dump(ordered, fh, indent=1, ensure_ascii=False)
-                fh.write("\n")
+            try:
+                save_manifest(manifest_path, ordered, original_manifest)
+            except (ValueError, OSError) as exc:
+                print("Could not write %s: %s" % (terminal_text(manifest_path), terminal_text(exc)), file=sys.stderr)
+                return 2
         blank.extend(unlisted)
         unlisted = []
 
@@ -758,12 +912,12 @@ def main():
         print(json.dumps(report, indent=1, ensure_ascii=False))
         return 1 if (args.check and need) else 0
 
-    print("Photo credit scan: %s" % site)
-    print("Manifest: %s%s" % (manifest_path, "" if existed else "  (did not exist)"))
+    print("Photo credit scan: %s" % terminal_text(site))
+    print("Manifest: %s%s" % (terminal_text(manifest_path), "" if existed else "  (did not exist)"))
     print()
     notes = []
     if files_found != len(kept):
-        notes.append("%s; the same picture in two file types counts once" % count(files_found, "file"))
+        notes.append("%s; legacy entries can group alternate file types" % count(files_found, "file"))
     if excluded:
         notes.append("%d more excluded" % excluded)
     if small:
@@ -783,23 +937,23 @@ def main():
             return
         print("\n%s" % title)
         for r in rows:
-            print("  %s  (%s px)" % (r["file"], r["px"]))
+            print("  %s  (%s px)" % (terminal_text(r["file"]), r["px"]))
             if r.get("show"):
                 print("      shown: %s" % ("on the credits page only" if r["show"] == "page" else "nowhere"))
             if r.get("credit"):
-                print("      credit: %s" % r["credit"])
+                print("      credit: %s" % terminal_text(r["credit"]))
             for m in r.get("missing", ()):
                 print("      missing: %s" % m)
             where = ", ".join(r["used_on"][:4]) + (" ..." if len(r["used_on"]) > 4 else "")
-            print("      used on: %s" % (where or "no mention found in site files"))
+            print("      used on: %s" % (terminal_text(where) or "no mention found in site files"))
             found = r.get("leads", {})
             inside = found.get("inside_the_file")
             if inside:
-                print("      inside the file: %s" % "; ".join('%s "%s"' % (k.replace("_", " "), v)
-                                                              for k, v in inside.items()))
+                fields = ('%s "%s"' % (k.replace("_", " "), terminal_text(v)) for k, v in inside.items())
+                print("      inside the file: %s" % "; ".join(fields))
             for item in found.get("on_the_page", ())[:3]:
-                parts = ['%s "%s"' % (k, item[k]) for k in ("alt", "caption") if k in item]
-                print("      on the page (%s): %s" % (item["page"], "; ".join(parts)))
+                parts = ['%s "%s"' % (k, terminal_text(item[k])) for k in ("alt", "caption") if k in item]
+                print("      on the page (%s): %s" % (terminal_text(item["page"]), "; ".join(parts)))
             for site_name in found.get("file_name", ()):
                 print("      file name: matches how %s names its files" % site_name)
             if not found:
@@ -812,13 +966,13 @@ def main():
         print("\nSet aside as smaller than %d px on the longest side (icons, spacers, tracking pixels)." % args.min_px)
         print("Not counted as needing work. Run with --min-px 0 to include them:")
         for r in small[:10]:
-            print("  %s  (%s px)" % (r["file"], r["px"]))
+            print("  %s  (%s px)" % (terminal_text(r["file"]), r["px"]))
         if len(small) > 10:
             print("  ... and %d more" % (len(small) - 10))
     if missing_files:
         print("\nListed, but the file is not in the folder:")
         for f in missing_files:
-            print("  %s" % f)
+            print("  %s" % terminal_text(f))
     if need:
         print("\nLeads are evidence to confirm, not credits. 'No mention found' means no page, stylesheet or "
               "script names that file; a script that builds file names in code can still load it.")

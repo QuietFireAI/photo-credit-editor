@@ -22,7 +22,7 @@ main { max-width: 1000px; margin: 0 auto; padding: 40px 24px 96px; }
 h1 { margin: 0 0 8px; font-size: 2rem; font-weight: 600; letter-spacing: -0.01em; }
 .lede { margin: 0 0 22px; color: var(--muted); max-width: 70ch; }
 .bar { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 12px; align-items: center; }
-button, input { font: inherit; color: inherit; }
+button, input, select, textarea { font: inherit; color: inherit; }
 .btn { padding: 10px 16px; border: 1px solid var(--ink); border-radius: 4px; background: var(--card); font-weight: 600; font-size: 0.9rem; cursor: pointer; }
 .btn:hover { background: var(--field); }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
@@ -66,6 +66,14 @@ button.thumb:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
 .fields label { display: grid; gap: 3px; font-size: 0.76rem; font-weight: 600; }
 .fields input { padding: 8px 9px; border: 1px solid var(--line); border-radius: 3px; background: var(--field); font-weight: 400; font-size: 0.92rem; width: 100%; }
 .fields input.badlink { border-color: var(--bad); }
+.audit-state { grid-column: 1 / -1; display: grid; gap: 4px; font-size: .84rem; color: var(--muted); overflow-wrap: anywhere; }
+.audit-state strong { color: var(--ink); }
+.pick { display: flex; align-items: center; gap: 5px; font-size: .78rem; }
+.export-panel { width: min(720px, 94vw); max-height: 90vh; border: 1px solid var(--line); border-radius: 6px; padding: 20px; color: var(--ink); background: var(--card); }
+.export-panel::backdrop { background: #0009; }
+.export-panel textarea { width: 100%; min-height: 9em; border: 1px solid var(--line); background: var(--field); border-radius: 4px; padding: 8px; }
+.export-panel .bar { margin-top: 12px; }
+.banner-preview { max-width: 100%; margin: 12px 0 0; }
 .leads { grid-column: 1 / -1; padding: 10px 12px; background: var(--lead); border: 1px solid var(--line); border-radius: 3px; font-size: 0.86rem; }
 .leads h3 { margin: 0 0 6px; font-size: 0.8rem; font-weight: 700; }
 .leads ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 5px; }
@@ -105,13 +113,13 @@ button.thumb:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
 <body>
 <main>
   <h1>Photo credit editor</h1>
-  <p class="lede">Make sure every picture on your website carries a proper credit. Choose your site folder to list every picture. The editor reads each picture file for the author and copyright stored inside it, shows what is still missing, and saves everything to <b>photo-credits.json</b>, which goes in the top folder of your site. Your pictures stay on this computer.</p>
+  <p class="lede">Review a site folder or local repository checkout. See where likely photos appear, check what credit is recorded, and export the updates you approve. The scan reads only the folder you choose. Your photos stay on this computer.</p>
 
   <div class="bar">
-    <button class="btn" id="btnFolder" type="button">Choose site folder</button>
+    <button class="btn" id="btnFolder" type="button">Choose scan folder</button>
     <button class="btn" id="btnOpen" type="button">Open photo-credits.json</button>
     <button class="btn" id="btnAdd" type="button">Add a picture</button>
-    <button class="btn primary" id="btnDownload" type="button">Download photo-credits.json</button>
+    <button class="btn primary" id="btnDownload" type="button" disabled>Review selected exports</button>
     <input type="file" id="inFolder" webkitdirectory hidden>
     <input type="file" id="inOpen" accept=".json,application/json" hidden>
   </div>
@@ -122,29 +130,63 @@ button.thumb:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
   </div>
 
   <div class="tools">
-    <button class="chip" type="button" data-filter="all" aria-pressed="true">All</button>
-    <button class="chip" type="button" data-filter="todo" aria-pressed="false">Needs work</button>
+    <button class="chip" type="button" data-filter="all" aria-pressed="true">All photos</button>
+    <button class="chip" type="button" data-filter="likely" aria-pressed="false">Likely photos</button>
+    <button class="chip" type="button" data-filter="review" aria-pressed="false">Needs photo review</button>
+    <button class="chip" type="button" data-filter="todo" aria-pressed="false">Attribution incomplete</button>
+    <button class="chip" type="button" data-filter="metadata" aria-pressed="false">Missing metadata</button>
+    <button class="chip" type="button" data-filter="visible" aria-pressed="false">Credit not seen</button>
     <button class="chip" type="button" data-filter="done" aria-pressed="false">Complete</button>
     <input id="search" type="search" placeholder="Search file, title or credit" aria-label="Search pictures">
     <label class="sizefilter">Leave out images smaller than <input id="minPx" type="number" min="0" step="10" value="100"> px</label>
     <span id="count"></span>
   </div>
+  <div class="bar">
+    <button class="btn" id="selectVisible" type="button">Select all in view</button>
+    <button class="btn" id="clearSelection" type="button">Clear selection</button>
+    <span id="selectedCount" aria-live="polite"></span>
+  </div>
 
   <details id="smallBox" hidden>
     <summary id="smallSum"></summary>
-    <p style="margin:8px 0 0">These are smaller than the size above on their longest side, which usually means icons, spacers or invisible tracking pixels. They are left out of the list and the saved file. Add any that are real pictures.</p>
+    <p style="margin:8px 0 0">Review the excluded assets here. Include any that should be treated as photos.</p>
     <ul id="smallList"></ul>
-    <button class="btn" id="smallAddAll" type="button">Add them all to the list</button>
+    <button class="btn" id="smallAddAll" type="button">Include all</button>
   </details>
 
   <div id="rows"></div>
 
-  <p class="small"><b>What counts as complete:</b> a credit, plus the license or permission you are using the picture under. A Creative Commons picture also needs a link to its source page and the license version, and versions 3.0 and earlier need the title. A lead found in a file is evidence, not proof: use it only if you know it is right.</p>
+  <p class="small"><b>What counts as complete:</b> record the credit and license or permission. For Creative Commons, include the source URL and license version, plus the title for versions 3.0 and earlier. Check the evidence before approving a credit.</p>
   <p class="small">A credit line says who made a picture. It is not permission to use it. If you are not sure you are allowed to use a picture, check with its owner before publishing. <button class="linkbtn" id="btnReset" type="button" style="margin-left:0">Start over with an empty list</button></p>
 
   <dialog id="viewer" aria-label="Picture preview">
     <img id="viewerImg" alt="">
     <div class="vbar"><span id="viewerText"></span><button class="btn" id="viewerClose" type="button">Close</button></div>
+  </dialog>
+  <dialog id="exportPanel" class="export-panel" aria-labelledby="exportHeading">
+    <h2 id="exportHeading">Review exports</h2>
+    <p id="exportSummary"></p>
+    <details><summary>Preview manifest changes</summary><pre id="manifestPreview" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre></details>
+    <div class="bar">
+      <button class="btn primary" id="saveAudit" type="button">Download audit document</button>
+      <button class="btn" id="saveManifest" type="button">Download merged manifest</button>
+      <button class="btn" id="saveMetadata" type="button">Download JPEG with metadata</button>
+    </div>
+    <p class="small">A metadata update can fix a missing embedded field. Visible site credits still depend on how the site displays attribution.</p>
+    <details id="bannerTools">
+      <summary>V2 preview · Inline credit banners</summary>
+      <div class="bar">
+        <label>Theme <select id="bannerTheme"><option value="dark">Dark</option><option value="light">Light</option></select></label>
+        <label>Placement <select id="bannerPosition"><option value="overlay">Bottom overlay</option><option value="below">Below photo</option></select></label>
+        <label>Preview <select id="bannerWidth"><option value="640">Wide</option><option value="320">Narrow</option></select></label>
+      </div>
+      <div id="bannerPreview" class="banner-preview"></div>
+      <label for="bannerCode">HTML for complete selected credits</label>
+      <textarea id="bannerCode" readonly rows="4"></textarea>
+      <button class="btn" id="copyBanners" type="button">Copy HTML</button>
+      <button class="btn" id="saveBanners" type="button">Download HTML</button>
+    </details>
+    <div class="bar"><form method="dialog"><button class="btn" type="submit">Close</button></form></div>
   </dialog>
 
   <datalist id="licenses">
@@ -171,22 +213,30 @@ button.thumb:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
   var DRAFT_KEY = 'photo-credits-editor-draft-v1';
   var FIELDS = [
     { key: 'file', label: 'File on the site', hint: 'images/gallery/photo1.jpg' },
-    { key: 'title', label: 'What it shows', hint: '' },
-    { key: 'credit', label: 'Credit (photographer or owner)', hint: '' },
+    { key: 'title', label: 'Photo title', hint: '' },
+    { key: 'credit', label: 'Display credit', hint: 'Photographer or credit line' },
     { key: 'source', label: 'Source', hint: 'Wikimedia Commons, family collection, ...' },
     { key: 'license', label: 'License or permission', hint: 'CC BY-SA 4.0, Own work, ...', list: 'licenses' },
-    { key: 'link', label: 'Link to the source page', hint: 'https://' }
+    { key: 'link', label: 'Source URL', hint: 'https://' },
+    { key: 'creator', label: 'Photographer (embedded author, optional)', hint: '', embeddedOnly: true },
+    { key: 'copyright', label: 'Copyright notice (optional)', hint: '' },
+    { key: 'licenseUrl', label: 'License URL (optional)', hint: 'https://' }
   ];
 
-  var state = { photos: [], extra: {}, filter: 'all', query: '', folder: false, dirty: false, restored: false };
+  var state = { photos: [], extra: {}, baseline: null, scope: '', filter: 'all', query: '', folder: false, scanning: false, dirty: false, restored: false };
   var $ = function (id) { return document.getElementById(id); };
   var draftTimer = null;
 
-  function blank(file) { return { file: file || '', title: '', credit: '', source: '', license: '', link: '' }; }
-  function normPath(p) { return String(p || '').replace(/\\/g, '/').replace(/^(\.\/|\/)+/, '').toLowerCase(); }
-  /* The site script ignores the file type, so mill.webp and mill.jpg are one picture with one credit. */
-  function stem(k) { return k.replace(/\.[a-z0-9]+$/, ''); }
-  function badLink(p) { var l = String(p.link || '').trim(); return !!l && !/^https?:\/\//i.test(l); }
+  function blank(file) { return { file: file || '', title: '', credit: '', source: '', license: '', link: '', creator: '', copyright: '', licenseUrl: '' }; }
+  function normPath(p) { return String(p || '').trim().replace(/\\/g, '/').replace(/^(\.\/|\/)+/, ''); }
+  function webURL(value) {
+    var raw = String(value || '').trim();
+    if (!/^https?:\/\//i.test(raw)) return '';
+    try { return new URL(raw).href; } catch (error) { return ''; }
+  }
+  function badLink(p) {
+    return [p.link, p.licenseUrl].some(function (value) { return String(value || '').trim() && !webURL(value); });
+  }
 
   /* ---- What a proper attribution needs. The same rules as scan_photos.py. ---- */
   function licenseFamily(text) {
@@ -205,11 +255,12 @@ button.thumb:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
     if (!lic) out.push('no license or permission recorded');
     if (licenseFamily(lic) === 'creative commons' && showMode(p) === 'none') out.push('a Creative Commons license requires the credit to be shown; it is set to show nowhere');
     if (licenseFamily(lic) === 'creative commons') {
-      if (!/^https?:\/\//i.test(link)) out.push('a Creative Commons license needs a link to the source page');
+      if (!webURL(link)) out.push('a Creative Commons license needs a link to the source page');
       var v = /(\d)\.\d/.exec(lic);
       if (!v) out.push('the license version is missing, for example 4.0');
       else if (parseInt(v[1], 10) <= 3 && !String(p.title || '').trim()) out.push('Creative Commons versions 3.0 and earlier need the title of the work');
     }
+    if (badLink(p)) out.push('source and license links must be valid HTTP(S) URLs');
     return out;
   }
   /* 'done' = complete or no credit needed, 'partial' = credited but incomplete, 'todo' = no credit. */
@@ -353,7 +404,7 @@ button.thumb:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
     if (a !== -1 && b !== -1) readXmp(text(u8.subarray(a, b + 12)), out);
   }
   function readJpeg(u8, out) {
-    var i = 2, d = view(u8);
+    var i = 2, d = view(u8), xmp = {};
     while (i + 4 <= u8.length && u8[i] === 0xFF) {
       var marker = u8[i + 1];
       if (marker === 0xD8 || marker === 0x01 || (marker >= 0xD0 && marker <= 0xD7)) { i += 2; continue; }
@@ -361,41 +412,79 @@ button.thumb:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
       var size = d.getUint16(i + 2), body = u8.subarray(i + 4, i + 2 + size);
       var head = text(body.subarray(0, 29), 'latin1');
       if (marker === 0xE1 && head.indexOf('Exif\u0000\u0000') === 0) readTiff(body.subarray(6), out);
-      else if (marker === 0xE1 && head === 'http://ns.adobe.com/xap/1.0/\u0000') readXmp(text(body.subarray(29)), out);
+      else if (marker === 0xE1 && head === 'http://ns.adobe.com/xap/1.0/\u0000') readXmp(text(body.subarray(29)), xmp);
       else if (marker === 0xED && head.indexOf('Photoshop 3.0\u0000') === 0) readPhotoshop(body.subarray(14), out);
       i += 2 + size;
     }
+    Object.assign(out, xmp);
   }
-  function inflate(u8) {
-    if (typeof DecompressionStream === 'undefined') return Promise.resolve(null);
+  var MAX_PNG_TEXT_CHUNK = 64 * 1024, MAX_PNG_TEXT_TOTAL = 256 * 1024;
+
+  async function inflate(u8, limit) {
+    var offset = 0, used = 0, output = new Uint8Array(limit);
+    var input = new ReadableStream({
+      pull: function (controller) {
+        if (offset === u8.length) { controller.close(); return; }
+        var end = Math.min(offset + 1024, u8.length);
+        controller.enqueue(u8.subarray(offset, end));
+        offset = end;
+      }
+    });
+    var reader = input.pipeThrough(new DecompressionStream('deflate')).getReader();
     try {
-      var stream = new Blob([u8]).stream().pipeThrough(new DecompressionStream('deflate'));
-      return new Response(stream).arrayBuffer().then(function (b) { return new Uint8Array(b); }, function () { return null; });
-    } catch (e) { return Promise.resolve(null); }
-  }
-  function readPng(u8, out) {
-    var i = 8, d = view(u8), jobs = [];
-    function entry(key, value) {
-      if (key === 'XML:com.adobe.xmp') readXmp(value, out);
-      else if (PNG_KEYS[key.toLowerCase()]) put(out, PNG_KEYS[key.toLowerCase()], value);
+      while (true) {
+        var chunk = await reader.read();
+        if (chunk.done) return output.subarray(0, used);
+        if (chunk.value.length > limit - used) {
+          await reader.cancel();
+          return null;
+        }
+        output.set(chunk.value, used);
+        used += chunk.value.length;
+      }
+    } catch (e) {
+      return null;
+    } finally {
+      reader.releaseLock();
     }
+  }
+  async function readPng(u8, out) {
+    var i = 8, d = view(u8), remaining = MAX_PNG_TEXT_TOTAL;
     while (i + 8 <= u8.length) {
       var size = d.getUint32(i), kind = text(u8.subarray(i + 4, i + 8), 'latin1'), body = u8.subarray(i + 8, i + 8 + size);
       i += 12 + size;
-      var z = body.indexOf(0);
       if (kind === 'eXIf') { readTiff(body, out); continue; }
-      if (z < 0 || (kind !== 'tEXt' && kind !== 'zTXt' && kind !== 'iTXt')) continue;
-      var key = text(body.subarray(0, z), 'latin1'), rest = body.subarray(z + 1);
-      if (kind === 'tEXt') entry(key, text(rest, 'latin1'));
-      else if (kind === 'zTXt') (function (k, r) { jobs.push(inflate(r.subarray(1)).then(function (b) { if (b) entry(k, text(b, 'latin1')); })); })(key, rest);
-      else {
-        var packed = rest[0] === 1; rest = rest.subarray(2);
-        rest = rest.subarray(rest.indexOf(0) + 1); rest = rest.subarray(rest.indexOf(0) + 1);
-        if (packed) (function (k, r) { jobs.push(inflate(r).then(function (b) { if (b) entry(k, text(b)); })); })(key, rest);
-        else entry(key, text(rest));
+      if (!remaining || (kind !== 'tEXt' && kind !== 'zTXt' && kind !== 'iTXt')) continue;
+      var z = body.subarray(0, 80).indexOf(0);
+      if (z <= 0) continue;
+      var key = text(body.subarray(0, z), 'latin1'), raw = body.subarray(z + 1);
+      var lookup = key.toLowerCase(), isXmp = key === 'XML:com.adobe.xmp';
+      if (!isXmp && !Object.prototype.hasOwnProperty.call(PNG_KEYS, lookup)) continue;
+      var packed = kind === 'zTXt';
+      if (packed) {
+        if (raw[0] !== 0) continue;
+        raw = raw.subarray(1);
+      } else if (kind === 'iTXt') {
+        if ((raw[0] !== 0 && raw[0] !== 1) || raw[1] !== 0) continue;
+        packed = raw[0] === 1;
+        var languageEnd = raw.indexOf(0, 2);
+        if (languageEnd < 0) continue;
+        var keywordEnd = raw.indexOf(0, languageEnd + 1);
+        if (keywordEnd < 0) continue;
+        raw = raw.subarray(keywordEnd + 1);
       }
+      var limit = Math.min(remaining, MAX_PNG_TEXT_CHUNK);
+      if (packed) {
+        if (typeof DecompressionStream === 'undefined') continue;
+        raw = await inflate(raw, limit);
+        if (!raw) { remaining -= limit; continue; }
+      }
+      remaining -= Math.min(limit, raw.length);
+      if (raw.length > limit) continue;
+      var value = text(raw, kind === 'iTXt' ? undefined : 'latin1');
+      if (isXmp) readXmp(value, out);
+      else put(out, PNG_KEYS[lookup], value);
     }
-    return Promise.all(jobs);
   }
   function readWebp(u8, out) {
     var i = 12, d = view(u8);
@@ -436,12 +525,12 @@ button.thumb:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
   function readData(d) {
     var list = Array.isArray(d) ? d : (d && Array.isArray(d.photos) ? d.photos : null);
     if (!list) throw new Error('no photos list');
-    var extra = {};
+    var extra = Object.create(null);
     if (d && !Array.isArray(d)) Object.keys(d).forEach(function (k) { if (k !== 'photos') extra[k] = d[k]; });
     var photos = list.filter(function (p) { return p && typeof p === 'object'; }).map(function (p) {
       var row = blank('');
       Object.keys(p).forEach(function (k) { if (k.charAt(0) !== '_') row[k] = p[k]; });
-      ['file', 'title', 'credit', 'source', 'license', 'link'].forEach(function (k) { row[k] = row[k] == null ? '' : String(row[k]); });
+      FIELDS.forEach(function (f) { row[f.key] = row[f.key] == null ? '' : String(row[f.key]); });
       row.skip = !!row.skip;
       row.show = showMode(row);
       return row;
@@ -450,18 +539,21 @@ button.thumb:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
   }
   function clean(p) {
     var out = {};
-    ['file', 'title', 'credit', 'source', 'license', 'link'].forEach(function (k) { out[k] = String(p[k] || '').trim(); });
+    FIELDS.forEach(function (f) { out[f.key] = String(p[f.key] || '').trim(); });
     Object.keys(p).forEach(function (k) {
       if (k.charAt(0) === '_' || k in out || k === 'skip' || k === 'show') return;
       out[k] = p[k];
     });
     if (showMode(p) !== 'all') out.show = showMode(p);
     if (p.skip) out.skip = true;
+    if (!out.copyright) delete out.copyright;
+    if (!out.licenseUrl) delete out.licenseUrl;
+    if (!out.creator) delete out.creator;
     return out;
   }
   function exportData() {
     var photos = state.photos.filter(function (p) { return String(p.file || '').trim(); }).map(clean);
-    var data = { note: NOTE };
+    var data = Object.assign(Object.create(null), { note: NOTE });
     Object.keys(state.extra).forEach(function (k) { data[k] = state.extra[k]; });
     data.photos = photos;
     return data;
@@ -490,9 +582,13 @@ button.thumb:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
   function changed() { state.dirty = true; saveDraft(); updateCount(); }
 
   function matches(p) {
+    if (state.filter === 'review' && (p._photoClass !== 'review' || p.skip)) return false;
+    if (state.filter === 'likely' && (p._photoClass !== 'photo' || p.skip)) return false;
     var s = status(p);
     if (state.filter === 'todo' && s === 'done') return false;
-    if (state.filter === 'done' && s !== 'done') return false;
+    if (state.filter === 'done' && (s !== 'done' || p.skip)) return false;
+    if (state.filter === 'metadata' && (p.skip || !p._leads || !auditFacts(p).metadataMissing.length)) return false;
+    if (state.filter === 'visible' && (p.skip || !p._usage || !auditFacts(p).missingVisible)) return false;
     if (state.query) {
       var hay = (p.file + ' ' + p.title + ' ' + p.credit + ' ' + p.source).toLowerCase();
       if (hay.indexOf(state.query) === -1) return false;
@@ -501,10 +597,68 @@ button.thumb:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
   }
 
   function updateCount() {
-    var n = { done: 0, partial: 0, todo: 0 };
-    state.photos.forEach(function (p) { n[status(p)]++; });
-    $('count').textContent = state.photos.length ? n.done + ' complete, ' + n.partial + ' incomplete, ' + n.todo + ' with no credit' : '';
-    paintSmall();
+    var selected = state.photos.filter(function (p) { return p._selected; }).length;
+    $('selectedCount').textContent = count(selected, 'photo') + ' selected';
+    $('btnDownload').disabled = state.scanning || !selected;
+    $('clearSelection').disabled = state.scanning || !selected;
+    $('selectVisible').disabled = state.scanning || !state.photos.some(matches);
+    var n = { done: 0, partial: 0, todo: 0, skipped: 0 };
+    state.photos.forEach(function (p) { n[p.skip ? 'skipped' : status(p)]++; });
+    $('count').textContent = state.photos.length ? n.done + ' complete, ' + n.partial + ' incomplete, ' + n.todo + ' with no credit'
+      + (n.skipped ? ', ' + n.skipped + ' marked no credit needed' : '') : '';
+  }
+
+  function auditFacts(p) {
+    var fields = p._leads || {}, usage = p._usage || [], credit = clipped(p.credit).toLowerCase();
+    var seen = usage.filter(function (use) {
+      return use.credit || /\b(?:photo(?:graph)?\s+(?:by|credit)|image credit)\b/i.test(use.caption || '')
+        || (credit && use.caption && use.caption.toLowerCase().includes(credit));
+    });
+    var metadataMissing = [];
+    if (!fields.artist && !fields.credit) metadataMissing.push('photographer / credit');
+    if (!fields.copyright) metadataMissing.push('copyright');
+    if (!fields.license && !fields.license_link) metadataMissing.push('license');
+    if (!fields.source && !fields.source_link) metadataMissing.push('source');
+    if (!fields.title) metadataMissing.push('title');
+    return {
+      classification: p.skip ? 'Excluded by reviewer' : (p._photoClass === 'photo' ? 'Likely photo' : 'Needs photo review')
+        + (p._kept ? ' · confirmed by reviewer' : p._photoReason ? ' · ' + p._photoReason : ''),
+      metadata: !p._file ? 'Photo file not loaded' : !p._leads ? 'Reading metadata'
+        : metadataMissing.length ? 'Embedded fields not found' + (p._file.size > 8 * 1024 * 1024 ? ' in first 8 MiB' : '')
+          + ' · ' + metadataMissing.join(', ') : 'Expected fields found',
+      recorded: p.skip ? 'No credit needed' : status(p) === 'done' ? 'Complete'
+        : status(p) === 'todo' ? 'No credit recorded' : problems(p).join('; '),
+      visible: !p._usage ? 'Page usage not scanned' : !usage.length ? 'No local static reference found'
+        : seen.length ? 'Credit found at ' + seen.length + ' of ' + usage.length + ' static references'
+        : 'No credit found at ' + usage.length + ' static references',
+      usage: usage,
+      metadataMissing: metadataMissing,
+      missingVisible: usage.length - seen.length,
+      fields: fields
+    };
+  }
+
+  function paintAudit(el, p) {
+    var box = el.querySelector('.audit-state');
+    if (!box) return;
+    var facts = auditFacts(p);
+    box.textContent = '';
+    function line(label, value) {
+      var row = document.createElement('div'), heading = document.createElement('strong');
+      heading.textContent = label + ' · ';
+      row.append(heading, document.createTextNode(value));
+      box.appendChild(row);
+    }
+    line('Photo', facts.classification);
+    line('Embedded metadata', facts.metadata);
+    line('Recorded attribution', facts.recorded);
+    line('Visible credit (static files)', facts.visible);
+    var pages = Array.from(new Set(facts.usage.map(function (use) { return use.page; })));
+    if (pages.length) line('Appears in', pages.join(', '));
+    var variants = Array.from(new Set(facts.usage.flatMap(function (use) { return use.variants; })));
+    if (variants.length) line('Responsive alternatives', variants.join(', '));
+    var captions = Array.from(new Set(facts.usage.map(function (use) { return use.credit || use.caption || use.alt; }).filter(Boolean)));
+    if (captions.length) line('Text found on page', captions.join(' · '));
   }
 
   function paintRow(el, p) {
@@ -513,7 +667,10 @@ button.thumb:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
     el.classList.toggle('partial', s === 'partial');
     el.classList.toggle('missing', !!p._missing);
     var link = el.querySelector('input[data-key="link"]');
-    if (link) link.classList.toggle('badlink', badLink(p));
+    if (link) link.classList.toggle('badlink', !!p.link.trim() && !webURL(p.link));
+    var licenseLink = el.querySelector('input[data-key="licenseUrl"]');
+    if (licenseLink) licenseLink.classList.toggle('badlink', !!p.licenseUrl.trim() && !webURL(p.licenseUrl));
+    paintAudit(el, p);
     var box = el.querySelector('.state');
     if (!box) return;
     box.textContent = '';
@@ -530,8 +687,8 @@ button.thumb:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
   }
 
   var LEAD_LABELS = { artist: 'Author', credit: 'Credit line', copyright: 'Copyright', title: 'Title', description: 'Description', source: 'Source', license: 'Usage terms', license_link: 'License link', source_link: 'Source link' };
-  var LEAD_TARGET = { artist: 'credit', credit: 'credit', copyright: 'credit', title: 'title', description: 'title', source: 'source', license: 'license', license_link: 'license', source_link: 'link' };
-  var TARGET_NAME = { credit: 'credit', title: 'title', source: 'source', license: 'license', link: 'link' };
+  var LEAD_TARGET = { artist: 'creator', credit: 'credit', copyright: 'copyright', title: 'title', description: 'title', source: 'source', license: 'license', license_link: 'licenseUrl', source_link: 'link' };
+  var TARGET_NAME = { creator: 'author', credit: 'credit', title: 'title', source: 'source', license: 'license', link: 'source URL', licenseUrl: 'license URL', copyright: 'copyright' };
 
   function paintLeads(el, p) {
     var old = el.querySelector('.leads');
@@ -554,13 +711,27 @@ button.thumb:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
       var target = LEAD_TARGET[k];
       use.textContent = 'Use as ' + TARGET_NAME[target];
       use.addEventListener('click', function () {
-        var v = k === 'license_link' ? licenseName(found[k]) : found[k];
+        var v = found[k];
         p[target] = v;
         var input = el.querySelector('input[data-key="' + target + '"]');
         if (input) input.value = v;
+        if (k === 'license_link' && !p.license) {
+          p.license = licenseName(v);
+          el.querySelector('input[data-key="license"]').value = p.license;
+        }
         paintRow(el, p); changed();
       });
       li.appendChild(what); li.appendChild(val); li.appendChild(use);
+      if (k === 'artist') {
+        var useCredit = document.createElement('button');
+        useCredit.type = 'button'; useCredit.className = 'use'; useCredit.textContent = 'Use as display credit';
+        useCredit.addEventListener('click', function () {
+          p.credit = found[k];
+          el.querySelector('input[data-key="credit"]').value = p.credit;
+          paintRow(el, p); changed();
+        });
+        li.appendChild(useCredit);
+      }
       ul.appendChild(li);
     });
     hints.forEach(function (site) {
@@ -608,6 +779,14 @@ button.thumb:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
       thumb.textContent = state.folder ? 'No preview' : 'Choose site folder to see previews';
     }
     pic.appendChild(thumb);
+    var pick = document.createElement('label');
+    pick.className = 'pick';
+    var selection = document.createElement('input');
+    selection.type = 'checkbox'; selection.checked = !!p._selected;
+    selection.setAttribute('aria-label', 'Select ' + (p.file || 'this photo') + ' for export');
+    selection.addEventListener('change', function () { p._selected = selection.checked; updateCount(); });
+    pick.append(selection, document.createTextNode('Select for export'));
+    pic.appendChild(pick);
     if (p._dims) {
       var dims = document.createElement('div');
       dims.className = 'dims';
@@ -623,6 +802,7 @@ button.thumb:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
       label.appendChild(document.createTextNode(f.label));
       var input = document.createElement('input');
       input.type = 'text'; input.value = p[f.key] || ''; input.placeholder = f.hint || '';
+      if (f.key === 'file' && p._file) input.readOnly = true;
       input.setAttribute('data-key', f.key);
       input.autocomplete = 'off';
       if (f.list) input.setAttribute('list', f.list);
@@ -632,6 +812,9 @@ button.thumb:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
     });
     el.appendChild(fields);
 
+    var audit = document.createElement('div');
+    audit.className = 'audit-state';
+    el.appendChild(audit);
     var st = document.createElement('div');
     st.className = 'state';
     el.appendChild(st);
@@ -656,6 +839,16 @@ button.thumb:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
     skipLabel.appendChild(document.createTextNode('No credit needed (logo, icon, or your own graphic)'));
     foot.appendChild(skipLabel);
     foot.appendChild(showLabel);
+    if (p._photoClass === 'review' && !p._kept) {
+      var confirmPhoto = document.createElement('button');
+      confirmPhoto.type = 'button'; confirmPhoto.className = 'btn'; confirmPhoto.textContent = 'Confirm as photo';
+      confirmPhoto.addEventListener('click', function () { p._kept = true; p._photoClass = 'photo'; render(); });
+      foot.appendChild(confirmPhoto);
+    }
+    var exportRow = document.createElement('button');
+    exportRow.type = 'button'; exportRow.className = 'btn'; exportRow.textContent = 'Review photo export';
+    exportRow.addEventListener('click', function () { openExports([p]); });
+    foot.appendChild(exportRow);
     if (p._new) { var t1 = document.createElement('span'); t1.className = 'tag new'; t1.textContent = 'New'; foot.appendChild(t1); }
     if (p._missing) { var t2 = document.createElement('span'); t2.className = 'tag gone'; t2.textContent = 'File not found in the folder'; foot.appendChild(t2); }
     var remove = document.createElement('button');
@@ -699,23 +892,25 @@ button.thumb:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
       box.appendChild(frag);
     }
     updateCount();
+    paintSmall();
   }
 
   /* ---- Open an existing photo-credits.json ---- */
-  function useData(d) { state.photos = d.photos; state.extra = d.extra; state.folder = false; }
+  function useData(d) { clearPreviews(); state.photos = d.photos; state.extra = d.extra; state.folder = false; }
   $('btnOpen').addEventListener('click', function () { $('inOpen').click(); });
   $('inOpen').addEventListener('change', function (e) {
     var f = e.target.files && e.target.files[0];
     if (!f) return;
     e.target.value = '';
     f.text().then(function (t) {
-      var d;
-      try { d = readData(JSON.parse(t)); } catch (x) { say('That file could not be read as a photo credits file.', 'bad'); return; }
+      var d, raw;
+      try { raw = JSON.parse(t); d = readData(raw); } catch (x) { say('That file could not be read as a photo credits file.', 'bad'); return; }
       var go = (!state.photos.length || sameList(d.photos)) ? Promise.resolve(true)
         : ask('Opening ' + f.name + ' will replace the ' + count(state.photos.length, 'picture') + ' now in the editor. Anything you have not downloaded will be lost.', 'Replace the list', 'Cancel');
       return go.then(function (yes) {
         if (!yes) { say('Kept the list in the editor. ' + f.name + ' was not opened.'); return; }
         useData(d);
+        state.baseline = raw; state.scope = f.name; state.manifestInvalid = false;
         state.dirty = false; saveDraft(); render();
         say('Opened ' + f.name + ' with ' + count(state.photos.length, 'picture') + '. Choose your site folder to see previews and leads.');
       });
@@ -795,24 +990,27 @@ button.thumb:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
   function isSmall(dm) { return !!(dm && minPx() && Math.max(dm[0], dm[1]) < minPx()); }
   function untouched(p) {
     return p._new && !p._kept && !p.skip && showMode(p) === 'all' &&
-      ['title', 'credit', 'source', 'license', 'link'].every(function (k) { return !String(p[k] || '').trim(); });
+      FIELDS.every(function (f) { return f.key === 'file' || !String(p[f.key] || '').trim(); });
   }
   function rowFor(item) {
     var row = blank(item.rel);
     row._new = true; row._file = item.file; row._dims = item._dims; row._hints = nameHints(row.file);
-    row._thumb = URL.createObjectURL(item.file);
+    row._thumb = item._url || URL.createObjectURL(item.file);
+    row._photoClass = item.kind;
+    row._photoReason = item.reason;
+    row._usage = item.usage;
     return row;
   }
   function paintSmall() {
     var box = $('smallBox'), list = $('smallList');
     box.hidden = !state.small.length;
     if (!state.small.length) return;
-    $('smallSum').textContent = count(state.small.length, 'small image') + ' left out (under ' + minPx() + ' px)';
+    $('smallSum').textContent = count(state.small.length, 'excluded asset');
     list.textContent = '';
     state.small.forEach(function (it, i) {
       var li = document.createElement('li');
       var im = document.createElement('img'); im.alt = ''; im.src = it._url || (it._url = URL.createObjectURL(it.file));
-      var sp = document.createElement('span'); sp.textContent = it.rel + (it._dims ? '  (' + it._dims[0] + ' × ' + it._dims[1] + ' px)' : '');
+      var sp = document.createElement('span'); sp.textContent = it.rel + ' · ' + it.reason;
       var b = document.createElement('button'); b.type = 'button'; b.className = 'btn'; b.textContent = 'Add';
       b.addEventListener('click', function () { addSmall([state.small[i]]); });
       li.appendChild(im); li.appendChild(sp); li.appendChild(b); list.appendChild(li);
@@ -822,10 +1020,11 @@ button.thumb:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
     items.forEach(function (it) {
       var i = state.small.indexOf(it);
       if (i > -1) state.small.splice(i, 1);
-      var row = rowFor(it); row._kept = true; state.photos.push(row);
+      var row = rowFor(it); row._kept = true; row._photoClass = 'photo'; state.photos.push(row);
     });
     changed(); render();
-    say('Added ' + count(items.length, 'small image') + ' to the list.');
+    say('Included ' + count(items.length, 'asset') + ' as photos.');
+    gatherLeads();
   }
   $('smallAddAll').addEventListener('click', function () { addSmall(state.small.slice()); });
   /* When the size changes, move untouched new rows out, and set-aside images back in, to match it. */
@@ -839,16 +1038,23 @@ button.thumb:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
     if (!state.folder) { paintSmall(); return; }
     var out = 0, back = 0;
     state.photos = state.photos.filter(function (p) {
-      if (untouched(p) && isSmall(p._dims)) { state.small.push({ file: p._file, rel: p.file, _dims: p._dims }); out++; return false; }
+      if (untouched(p) && p._file && isSmall(p._dims)) {
+        state.small.push({ file: p._file, rel: p.file, _dims: p._dims, usage: p._usage, _url: p._thumb,
+          kind: 'excluded', reason: 'Below the size threshold', sizeExcluded: true });
+        out++; return false;
+      }
       return true;
     });
     state.small = state.small.filter(function (it) {
-      if (isSmall(it._dims)) return true;
+      if (!it.sizeExcluded || isSmall(it._dims)) return true;
+      classify(it);
+      if (it.kind === 'excluded') return true;
       state.photos.push(rowFor(it)); back++; return false;
     });
     saveDraft();
     if (out || back) render(); else paintSmall();
     say('Size limit is now ' + (minPx() ? minPx() + ' px' : 'off') + '. ' + count(out, 'image') + ' left out, ' + count(back, 'image') + ' added back.');
+    if (back) gatherLeads();
   });
 
   /* ---- Larger preview ---- */
@@ -869,61 +1075,159 @@ button.thumb:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
   function relPath(f) { return String(f.webkitRelativePath || f.name).split('/').slice(1).join('/') || f.name; }
   function hidden(path) { return path.split('/').some(function (s) { return s.charAt(0) === '.' || s === 'node_modules'; }); }
 
-  function mergeFolder(files) {
-    var images = {}, order = [], byStem = {};
+  var AUDIT_ORIGIN = 'https://local-photo-audit.invalid';
+  var PAGE_FILE = /\.(html?|php|css)$/i;
+  var PAGE_MAX_BYTES = 512 * 1024;
+
+  function localReference(address, base) {
+    if (!address) return '';
+    try {
+      var url = new URL(address, base);
+      if (url.origin !== AUDIT_ORIGIN) return '';
+      return decodeURIComponent(url.pathname.slice(1));
+    } catch (error) { return ''; }
+  }
+
+  function srcsetURLs(value) {
+    return String(value || '').split(',').map(function (item) { return item.trim().split(/\s+/, 1)[0]; });
+  }
+
+  function clipped(value) {
+    return String(value || '').replace(/\s+/g, ' ').trim().slice(0, 300);
+  }
+
+  async function collectUsages(files, images) {
+    var usages = new Map(), skipped = 0;
+    function use(addresses, base, page, details) {
+      var paths = Array.from(new Set(addresses.map(function (address) {
+        return localReference(address, base);
+      }).filter(function (path) { return images.has(path); })));
+      paths.forEach(function (path) {
+        if (!usages.has(path)) usages.set(path, []);
+        var entries = usages.get(path);
+        if (entries.length < 50) entries.push(Object.assign({ page: page, variants: paths.filter(function (other) {
+          return other !== path;
+        }) }, details));
+      });
+    }
+
+    function cssUses(css, base, page) {
+      var urls = /url\(\s*(?:"([^"]{1,2048})"|'([^']{1,2048})'|([^)\s]{1,2048}))\s*\)/gi;
+      for (var match of css.matchAll(urls)) use([match[1] || match[2] || match[3]], base, page, { role: 'background' });
+    }
+
+    for (var file of files) {
+      var page = relPath(file);
+      if (!PAGE_FILE.test(page) || hidden(page)) continue;
+      if (file.size > PAGE_MAX_BYTES) { skipped++; continue; }
+      var source;
+      try { source = await file.text(); } catch (error) { skipped++; continue; }
+      var base = AUDIT_ORIGIN + '/' + page.split('/').map(encodeURIComponent).join('/');
+      if (/\.css$/i.test(page)) { cssUses(source, base, page); continue; }
+      // Template contents are inert. Never attach scanned markup to the editor.
+      var template = document.createElement('template');
+      template.innerHTML = source;
+      var snapshot = template.content, baseTag = snapshot.querySelector('base[href]');
+      if (baseTag) {
+        try { base = new URL(baseTag.getAttribute('href'), base).href; }
+        catch (error) { /* Use the page path for malformed bases. */ }
+      }
+      snapshot.querySelectorAll('img').forEach(function (img) {
+        var figure = img.closest('figure'), picture = img.closest('picture');
+        var caption = figure && figure.querySelector('figcaption');
+        var marker = (figure && figure.querySelector('.photo-credit, .photo-credit-inline, [data-photo-credit]'))
+          || (img.nextElementSibling && img.nextElementSibling.matches('.photo-credit, .photo-credit-inline, [data-photo-credit]') && img.nextElementSibling);
+        var addresses = ['src', 'data-src', 'data-lazy-src', 'data-original'].map(function (attr) { return img.getAttribute(attr); })
+          .concat(srcsetURLs(img.getAttribute('srcset')), srcsetURLs(img.getAttribute('data-srcset')));
+        if (picture) picture.querySelectorAll('source[srcset]').forEach(function (item) {
+          addresses.push(...srcsetURLs(item.getAttribute('srcset')));
+        });
+        use(addresses, base, page, { role: img.getAttribute('role') === 'presentation' || img.getAttribute('role') === 'none'
+          ? 'decorative' : 'image', alt: clipped(img.getAttribute('alt')), caption: clipped(caption && caption.textContent),
+          credit: clipped(marker && marker.textContent) });
+      });
+      snapshot.querySelectorAll('style, [style]').forEach(function (element) {
+        cssUses(element.getAttribute('style') || element.textContent, base, page);
+      });
+    }
+    return { usages: usages, skipped: skipped };
+  }
+
+  function classify(item) {
+    var usage = item.usage || [];
+    var shown = usage.some(function (where) { return where.role === 'image'; });
+    var graphic = /(?:^|[\/_. -])(?:icons?|logos?|favicons?|badges?|sprites?|spacers?|pixels?|tracking|emoji)(?=$|[\/_. -])/i.test(item.rel);
+    item.sizeExcluded = isSmall(item._dims);
+    if (item.sizeExcluded || (graphic && !shown) || (usage.length && usage.every(function (where) { return where.role === 'decorative'; }))) {
+      item.kind = 'excluded';
+      item.reason = item.sizeExcluded ? 'Below the size threshold' : 'Decorative image or graphic filename';
+    } else if (shown && item._dims && !graphic && Math.min(...item._dims) >= 100) {
+      item.kind = 'photo'; item.reason = 'Image used on a page with photo-sized dimensions';
+    } else {
+      item.kind = 'review'; item.reason = graphic ? 'Graphic-like name with page usage'
+        : usage.length ? 'Background or unusual dimensions' : 'No local page reference found';
+    }
+  }
+
+  function clearPreviews() {
+    state.photos.forEach(function (p) { if (p._thumb) URL.revokeObjectURL(p._thumb); });
+    state.small.forEach(function (item) { if (item._url) URL.revokeObjectURL(item._url); });
+    state.small = [];
+  }
+
+  async function mergeFolder(files) {
+    var images = new Map();
+    clearPreviews();
     files.sort(function (a, b) { return relPath(a).localeCompare(relPath(b), undefined, { numeric: true, sensitivity: 'base' }); });
     files.forEach(function (f) {
       var rel = relPath(f);
       if (!IMAGE.test(rel) || hidden(rel)) return;
       var k = normPath(rel);
-      if (images[k]) return;
-      images[k] = { file: f, rel: rel };
-      if (!byStem[stem(k)]) { byStem[stem(k)] = k; order.push(k); }   // one row per picture, whatever its file types
+      images.set(k, { file: f, rel: rel });
     });
-    var used = {}, missing = 0, known = 0;
+    var audit = await collectUsages(files, images);
+    var used = new Set(), missing = 0, known = 0;
+    images.forEach(function (item, path) { item.usage = audit.usages.get(path) || []; });
+    await measure(Array.from(images.values()));
+    images.forEach(classify);
     state.photos.forEach(function (p) {
-      p._new = false; p._file = null; p._leads = null; p._hints = nameHints(p.file);
+      p._new = false; p._file = null; p._leads = null; p._usage = null; p._reading = null; p._selected = false;
+      p._thumb = null; p._dims = null; p._hints = nameHints(p.file);
       var k = normPath(p.file);
       if (!k) return;
-      var hit = images[k] ? k : (byStem[stem(k)] || null);
-      if (!hit) {
-        /* Tolerate a folder picked one level too deep or too shallow: match on the end of the path. */
-        var ks = stem(k);
-        for (var i = 0; i < order.length && !hit; i++) {
-          var os = stem(order[i]);
-          if (os.slice(-(ks.length + 1)) === '/' + ks || ks.slice(-(os.length + 1)) === '/' + os) hit = order[i];
-        }
+      var item = images.get(k);
+      if (item) {
+        used.add(k); known++; p._missing = false; p._file = item.file; p._dims = item._dims;
+        p._thumb = URL.createObjectURL(item.file); p._usage = item.usage;
+        p._photoClass = p._kept || item.kind === 'photo' ? 'photo' : 'review'; p._photoReason = item.reason;
+      } else {
+        missing++; p._missing = true; p._photoClass = 'review'; p._photoReason = 'Referenced file missing in this folder';
       }
-      if (hit) { used[stem(hit)] = true; known++; p._missing = false; p._file = images[hit].file; p._thumb = URL.createObjectURL(images[hit].file); }
-      else { missing++; p._missing = true; p._thumb = null; p._dims = null; }
     });
-    var fresh = order.filter(function (k) { return !used[stem(k)]; }).map(function (k) { return { file: images[k].file, rel: images[k].rel }; });
-    var listed = state.photos.filter(function (p) { return p._file; }).map(function (p) { return { file: p._file, row: p }; });
-    return measure(fresh.concat(listed)).then(function () {
-      listed.forEach(function (it) { it.row._dims = it._dims; });
-      var added = 0, small = [];
-      fresh.forEach(function (it) {
-        if (isSmall(it._dims)) { small.push(it); return; }   // listed pictures are never set aside, whatever their size
-        state.photos.push(rowFor(it)); added++;
-      });
-      state.small = small;
-      return { total: order.length, added: added, known: known, missing: missing, small: small.length };
+    var added = 0;
+    images.forEach(function (item, key) {
+      if (used.has(key)) return;
+      if (item.kind === 'excluded') { state.small.push(item); return; }
+      state.photos.push(rowFor(item)); added++;
     });
+    return { total: images.size, added: added, known: known, missing: missing, excluded: state.small.length, skipped: audit.skipped };
   }
 
   /* Read what is stored inside each picture that still needs work, a few files at a time. */
   function gatherLeads() {
-    var queue = state.photos.filter(function (p) { return p._file && status(p) !== 'done'; });
+    var queue = state.photos.filter(function (p) { return p._file && !p._leads && !p._reading; });
     var total = queue.length, withLeads = 0, running = 0;
     return new Promise(function (resolve) {
       if (!total) return resolve(0);
       function next() {
         if (!queue.length) { if (!running) resolve(withLeads); return; }
-        var p = queue.shift(); running++;
-        readEmbedded(p._file).then(function (found) {
-          p._leads = found;
+        var p = queue.shift(), file = p._file; running++;
+        p._reading = file;
+        readEmbedded(file).then(function (found) {
+          if (p._reading !== file) return;
+          p._leads = found; p._reading = null;
           if (Object.keys(found).length || (p._hints || []).length) withLeads++;
-          if (p._el) paintLeads(p._el, p);
+          if (p._el) { paintLeads(p._el, p); paintAudit(p._el, p); }
         }).then(function () { running--; next(); });
       }
       for (var i = 0; i < 4; i++) next();
@@ -931,44 +1235,48 @@ button.thumb:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
   }
 
   $('btnFolder').addEventListener('click', function () { $('inFolder').click(); });
-  $('inFolder').addEventListener('change', function (e) {
+  $('inFolder').addEventListener('change', async function (e) {
     var files = Array.prototype.slice.call(e.target.files || []);
     e.target.value = '';
     if (!files.length) return;
-    var hasIndex = files.some(function (f) { return /^index\.(html?|php)$/i.test(relPath(f)); });
-    var manifest = null;
-    files.forEach(function (f) { if (relPath(f).toLowerCase() === 'photo-credits.json') manifest = f; });
-    var note = '';
-    var first = !manifest ? Promise.resolve() : manifest.text().then(function (t) {
-      var d;
-      try { d = readData(JSON.parse(t)); } catch (x) { note = ' The photo-credits.json in this folder could not be read, so it was left alone.'; return; }
-      if (!state.photos.length) { useData(d); note = ' Loaded the photo-credits.json found there.'; return; }
-      if (sameList(d.photos)) return;
-      /* The editor holds a different list, often unsaved work from an earlier visit. Never mix the two silently. */
-      return ask('This folder has its own photo-credits.json with ' + count(d.photos.length, 'picture') + '. The editor already holds a different list of ' +
-        count(state.photos.length, 'picture') + (state.restored ? ', saved in this browser from an earlier visit' : '') + '. Which do you want to work on?',
-        'Use the file in the folder', 'Keep the list in the editor').then(function (yes) {
-        if (yes) { useData(d); state.dirty = false; note = ' Loaded the photo-credits.json found there.'; }
-        else note = ' Kept the list in the editor. The photo-credits.json in the folder was not loaded.';
-      });
-    });
-    first.then(function () {
-      state.folder = true; state.restored = false;
-      say('Reading the folder...');
-      return mergeFolder(files);
-    }).then(function (r) {
+    var scope = (files[0].webkitRelativePath || '').split('/')[0] || 'selected folder';
+    var controls = ['btnFolder', 'btnOpen', 'btnAdd', 'btnReset', 'minPx', 'smallAddAll'];
+    controls.forEach(function (id) { $(id).disabled = true; });
+    state.scanning = true; $('rows').inert = true; $('smallBox').inert = true; updateCount();
+    try {
+      if (!await ask('Scan “' + scope + '” and its subfolders for photos, page references, and credits? Files stay on this computer.',
+        'Authorize scan', 'Cancel')) return;
+      var manifest = files.find(function (file) { return relPath(file) === 'photo-credits.json'; });
+      var raw = null, d = { photos: [], extra: {} }, invalid = false;
+      if (manifest) {
+        try { raw = JSON.parse(await manifest.text()); d = readData(raw); }
+        catch (error) { raw = null; invalid = true; }
+      }
+      if (state.photos.length && !sameList(d.photos)) {
+        var useFolder = await ask('Use the selected folder’s credits, or keep the entries currently in the editor as a working draft?',
+          'Use folder credits', 'Keep editor draft');
+        if (useFolder) { useData(d); state.dirty = false; }
+      } else if (!state.photos.length) useData(d);
+      state.baseline = raw; state.manifestInvalid = invalid;
+      state.scope = scope; state.folder = true; state.restored = false;
+      say('Scanning ' + scope + '…');
+      var r = await mergeFolder(files);
       if (r.added) state.dirty = true;
       saveDraft(); render();
-      var msg = 'Found ' + count(r.total, 'picture') + ' in the folder: ' + r.added + ' new, ' + r.known + ' already listed' +
-        (r.small ? ', ' + r.small + ' left out as smaller than ' + minPx() + ' px' : '') +
-        (r.missing ? ', ' + r.missing + ' listed but not found' : '') + '.' + note;
-      var kind = r.missing ? 'warn' : '';
-      if (!hasIndex) { msg += ' This folder has no index page at its top level. If file paths look wrong, choose the top folder of your site instead.'; kind = 'warn'; }
-      say(msg + ' Reading the picture files for leads...', kind);
-      return gatherLeads().then(function (n) {
-        say(msg + ' ' + (n ? 'Leads found for ' + count(n, 'picture') + ' that still ' + (n === 1 ? 'needs' : 'need') + ' work.' : 'No leads found in the picture files.'), kind);
-      });
-    });
+      var msg = count(r.total, 'image asset') + ' scanned · ' + r.added + ' new to review · ' + r.known + ' already recorded · ' + r.excluded + ' excluded.';
+      if (r.missing) msg += ' ' + count(r.missing, 'recorded file') + ' missing.';
+      if (r.skipped) msg += ' ' + count(r.skipped, 'page or stylesheet') + ' could not be inspected or exceeded the size limit.';
+      if (invalid) msg += ' The folder manifest could not be read. Audit downloads are still available.';
+      say(msg + ' Reading embedded metadata…', (r.missing || invalid) ? 'warn' : '');
+      await gatherLeads();
+      if (state.filter === 'metadata') render();
+      say(msg, (r.missing || invalid) ? 'warn' : '');
+    } catch (error) {
+      say('Could not finish the scan. ' + error.message, 'bad');
+    } finally {
+      controls.forEach(function (id) { $(id).disabled = false; });
+      state.scanning = false; $('rows').inert = false; $('smallBox').inert = false; updateCount();
+    }
   });
 
   /* ---- Add, filter, search, reset ---- */
@@ -994,29 +1302,322 @@ button.thumb:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
       : ask('Clear all ' + count(state.photos.length, 'picture') + ' from the editor? Anything you have not downloaded will be lost.', 'Clear the list', 'Cancel');
     go.then(function (yes) {
       if (!yes) return;
-      state.photos = []; state.extra = {}; state.folder = false; state.dirty = false; state.restored = false; state.small = [];
+      clearPreviews();
+      state.photos = []; state.extra = {}; state.baseline = null; state.scope = ''; state.manifestInvalid = false;
+      state.folder = false; state.dirty = false; state.restored = false;
       try { localStorage.removeItem(DRAFT_KEY); } catch (e) { /* ignore */ }
       render(); say('Started an empty list.');
     });
   });
 
-  /* ---- Download ---- */
+  /* ---- Export only the selected review results ---- */
+  function download(name, content, type) {
+    var link = document.createElement('a');
+    var url = URL.createObjectURL(content instanceof Blob ? content : new Blob([content], { type: type }));
+    link.href = url; link.download = name;
+    document.body.appendChild(link); link.click(); link.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+  }
+
+  function relativeImagePath(value) {
+    var path = String(value || '').trim().replace(/\\/g, '/').replace(/^(?:\.\/)+/, '');
+    if (!IMAGE.test(path) || /[:\x00-\x1f\x7f]/.test(path)
+        || path.split('/').some(function (part) { return !part || part === '.' || part === '..'; })) return '';
+    return path;
+  }
+
+  function publishable(p) {
+    return !!relativeImagePath(p.file) && !p._missing && !badLink(p) && status(p) === 'done';
+  }
+
+  function publicCredit(p) {
+    var row = clean(p), data = {};
+    FIELDS.forEach(function (f) { if (!f.embeddedOnly && row[f.key] !== undefined) data[f.key] = row[f.key]; });
+    data.file = relativeImagePath(p.file);
+    data.exactFile = true;
+    if (row.skip) return { file: data.file, exactFile: true, skip: true };
+    if (row.show) data.show = row.show;
+    return data;
+  }
+
+  function manifestFor(rows) {
+    var original = Array.isArray(state.baseline) ? state.baseline : state.baseline && state.baseline.photos;
+    var photos = original ? original.slice() : [];
+    var data = Object.assign(Object.create(null), { note: NOTE }, Array.isArray(state.baseline) ? null : state.baseline);
+    var locations = new Map(), selectedPaths = new Map(), changes = [], blocked = [];
+    photos.forEach(function (p, index) {
+      if (!p || typeof p !== 'object') return;
+      var key = relativeImagePath(p.file);
+      if (!key) return;
+      locations.set(key, locations.has(key) ? -1 : index);
+    });
+    rows.forEach(function (p) {
+      var key = relativeImagePath(p.file);
+      selectedPaths.set(key, (selectedPaths.get(key) || 0) + 1);
+    });
+    rows.forEach(function (p) {
+      var key = relativeImagePath(p.file);
+      if (!publishable(p) || selectedPaths.get(key) !== 1 || locations.get(key) === -1) { blocked.push(p); return; }
+      var updated = publicCredit(p);
+      if (locations.has(key)) {
+        var index = locations.get(key);
+        var existing = Object.assign(Object.create(null), photos[index]);
+        FIELDS.forEach(function (f) { if (!f.embeddedOnly) delete existing[f.key]; });
+        delete existing.show; delete existing.skip;
+        // Keep unselected rows and pre-existing extension fields.
+        photos[index] = Object.assign(existing, updated);
+      } else photos.push(updated);
+      changes.push(updated);
+    });
+    data.photos = photos;
+    return { data: data, changes: changes, blocked: blocked };
+  }
+
+  function markdown(value) {
+    return String(value || '').replace(/[\u0000-\u001f\u007f-\u009f]/g, ' ')
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/([\\\x60*_{}[\]()#!|~])/g, '\\$1');
+  }
+
+  function auditDocument(rows) {
+    var lines = ['# Photo credit audit', '', 'Scope: ' + markdown(state.scope || 'Editor entries'),
+      'Selected photos: ' + rows.length + ' · Excluded assets in scan: ' + state.small.length, '',
+      'Page usage and visible credits are based on static files. Site rendering may add other references or credits.', ''];
+    rows.forEach(function (p) {
+      var facts = auditFacts(p);
+      lines.push('## ' + markdown(p.file || 'Unnamed photo'), '', '- Classification: ' + markdown(facts.classification),
+        '- Embedded metadata: ' + markdown(facts.metadata), '- Recorded attribution: ' + markdown(facts.recorded),
+        '- Visible credit: ' + markdown(facts.visible));
+      FIELDS.forEach(function (f) {
+        if (f.key !== 'file' && String(p[f.key] || '').trim()) lines.push('- ' + f.label + ': ' + markdown(p[f.key]));
+      });
+      Object.keys(LEAD_LABELS).forEach(function (key) {
+        if (facts.fields[key]) lines.push('- Embedded ' + LEAD_LABELS[key].toLowerCase() + ': ' + markdown(facts.fields[key]));
+      });
+      facts.usage.forEach(function (use) {
+        var evidence = [use.credit && 'credit: ' + use.credit, use.caption && 'caption: ' + use.caption,
+          use.alt && 'alt: ' + use.alt, use.variants.length && 'alternatives: ' + use.variants.join(', ')].filter(Boolean);
+        lines.push('- Usage: ' + markdown(use.page + ' (' + use.role + ')' + (evidence.length ? ' · ' + evidence.join(' · ') : '')));
+      });
+      lines.push('');
+    });
+    if (state.small.length) {
+      lines.push('## Excluded assets', '');
+      state.small.forEach(function (item) { lines.push('- ' + markdown(item.rel + ' · ' + item.reason)); });
+      lines.push('');
+    }
+    return lines.join('\n');
+  }
+
+  var exportRows = [];
+  function openExports(rows) {
+    if (state.scanning || !rows.length) return;
+    exportRows = rows.slice();
+    var batch = manifestFor(exportRows);
+    var canMerge = !state.manifestInvalid && !state.restored;
+    $('exportSummary').textContent = count(exportRows.length, 'photo') + ' selected. '
+      + count(batch.changes.length, 'entry') + ' ready for the site manifest. '
+      + batch.blocked.length + ' need review or have conflicting paths.'
+      + (!canMerge ? ' Open a valid manifest or authorize a folder scan before exporting a merge.' : '');
+    $('manifestPreview').textContent = batch.changes.length ? JSON.stringify(batch.changes, null, 2) : 'No approved manifest changes.';
+    $('saveManifest').disabled = !canMerge || !batch.changes.length;
+    $('saveMetadata').disabled = !metadataPhoto();
+    paintBanner();
+    $('exportPanel').showModal();
+  }
+
+  $('selectVisible').addEventListener('click', function () {
+    state.photos.filter(matches).forEach(function (p) { p._selected = true; });
+    render();
+  });
+  $('clearSelection').addEventListener('click', function () {
+    state.photos.forEach(function (p) { p._selected = false; });
+    render();
+  });
   $('btnDownload').addEventListener('click', function () {
-    var data = exportData();
-    var blob = new Blob([JSON.stringify(data, null, 1) + '\n'], { type: 'application/json' });
-    var a = document.createElement('a');
-    a.href = URL.createObjectURL(blob); a.download = 'photo-credits.json';
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
-    state.dirty = false;
-    var todo = data.photos.filter(function (p) { return status(p) === 'todo'; }).length;
-    var part = data.photos.filter(function (p) { return status(p) === 'partial'; }).length;
-    var bad = data.photos.filter(badLink).length;
-    var msg = 'Downloaded photo-credits.json with ' + count(data.photos.length, 'picture') + '. Put it in the top folder of your site.';
-    if (todo) msg += ' ' + todo + (todo === 1 ? ' still has' : ' still have') + ' no credit.';
-    if (part) msg += ' ' + part + (part === 1 ? ' is' : ' are') + ' credited but incomplete.';
-    if (bad) msg += ' ' + bad + ' link' + (bad === 1 ? ' does' : 's do') + ' not start with http:// or https:// and will not be shown.';
-    say(msg, (todo || part || bad) ? 'warn' : '');
+    openExports(state.photos.filter(function (p) { return p._selected; }));
+  });
+  $('saveAudit').addEventListener('click', function () { download('photo-credit-audit.md', auditDocument(exportRows), 'text/markdown'); });
+  $('saveManifest').addEventListener('click', function () {
+    var batch = manifestFor(exportRows);
+    if (state.manifestInvalid || state.restored || !batch.changes.length) return;
+    download('photo-credits.json', JSON.stringify(batch.data, null, 2) + '\n', 'application/json');
+  });
+
+  /* ---- Export a JPEG copy with updated standard XMP attribution fields ---- */
+  var JPEG_XMP = new TextEncoder().encode('http://ns.adobe.com/xap/1.0/\0');
+  var XMP_EDIT_FIELDS = [
+    ['creator', 'http://purl.org/dc/elements/1.1/', 'dc:creator', 'seq'],
+    ['credit', 'http://ns.adobe.com/photoshop/1.0/', 'photoshop:Credit'],
+    ['title', 'http://purl.org/dc/elements/1.1/', 'dc:title', 'alt'],
+    ['copyright', 'http://purl.org/dc/elements/1.1/', 'dc:rights', 'alt'],
+    ['source', 'http://purl.org/dc/elements/1.1/', 'dc:source'],
+    ['license', 'http://ns.adobe.com/xap/1.0/rights/', 'xmpRights:UsageTerms', 'alt'],
+    ['licenseUrl', 'http://creativecommons.org/ns#', 'cc:license', 'url'],
+    ['link', 'http://creativecommons.org/ns#', 'cc:attributionURL', 'url']
+  ];
+
+  function metadataPhoto() {
+    if (exportRows.length !== 1) return null;
+    var p = exportRows[0];
+    return p._file && /\.jpe?g$/i.test(p.file) && !p.skip && !badLink(p)
+      && XMP_EDIT_FIELDS.some(function (field) { return p[field[0]].trim(); }) ? p : null;
+  }
+
+  function updatedXmp(packet, p) {
+    var xml = packet ? new TextDecoder('utf-8', { fatal: true }).decode(packet)
+      : '<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="' + RDF + '"><rdf:Description rdf:about=""/></rdf:RDF></x:xmpmeta>';
+    if (/<!DOCTYPE/i.test(xml)) throw new Error('The JPEG has unsupported XMP declarations.');
+    var doc = new DOMParser().parseFromString(xml, 'application/xml');
+    var rdf = doc.getElementsByTagNameNS(RDF, 'RDF')[0];
+    if (!rdf || doc.getElementsByTagName('parsererror').length) throw new Error('The JPEG’s existing XMP could not be read.');
+    var descriptions = Array.from(rdf.children).filter(function (node) {
+      return node.namespaceURI === RDF && node.localName === 'Description' && !node.getAttributeNS(RDF, 'about');
+    });
+    if (!descriptions.length) {
+      var description = doc.createElementNS(RDF, 'rdf:Description');
+      description.setAttributeNS(RDF, 'rdf:about', '');
+      rdf.appendChild(description);
+      descriptions.push(description);
+    }
+    XMP_EDIT_FIELDS.forEach(function (field) {
+      var value = p[field[0]].trim(), ns = field[1], name = field[2], form = field[3];
+      if (!value) return;
+      if (/[\u0000-\u0008\u000b\u000c\u000e-\u001f\ufffe\uffff]/.test(value)) throw new Error('An attribution field contains unsupported characters.');
+      var local = name.split(':')[1];
+      descriptions.forEach(function (node) {
+        node.removeAttributeNS(ns, local);
+        Array.from(node.children).forEach(function (child) {
+          if (child.namespaceURI === ns && child.localName === local) child.remove();
+        });
+      });
+      var property = doc.createElementNS(ns, name);
+      if (form === 'url') property.setAttributeNS(RDF, 'rdf:resource', webURL(value));
+      else if (form === 'alt' || form === 'seq') {
+        var list = doc.createElementNS(RDF, form === 'alt' ? 'rdf:Alt' : 'rdf:Seq'), item = doc.createElementNS(RDF, 'rdf:li');
+        if (form === 'alt') item.setAttributeNS('http://www.w3.org/XML/1998/namespace', 'xml:lang', 'x-default');
+        item.textContent = value;
+        list.appendChild(item);
+        property.appendChild(list);
+      } else property.textContent = value;
+      descriptions[0].appendChild(property);
+    });
+    return new TextEncoder().encode(new XMLSerializer().serializeToString(doc));
+  }
+
+  async function jpegWithMetadata(p) {
+    var file = p._file;
+    var bytes = new Uint8Array(await file.slice(0, 8 * 1024 * 1024).arrayBuffer());
+    if (bytes[0] !== 0xff || bytes[1] !== 0xd8) throw new Error('The selected file is not a JPEG.');
+    var offset = 2, insertAt = 2, found = null, reachedImage = false;
+    while (offset + 1 < bytes.length && bytes[offset] === 0xff) {
+      var markerAt = offset;
+      while (bytes[offset] === 0xff) offset++;
+      var marker = bytes[offset++];
+      if (marker === 0xda && offset + 2 <= bytes.length) { reachedImage = true; break; }
+      if (offset + 2 > bytes.length) break;
+      var length = bytes[offset] * 256 + bytes[offset + 1], end = offset + length;
+      if (length < 2 || end > bytes.length) break;
+      if (marker === 0xe1) {
+        var body = bytes.subarray(offset + 2, end);
+        if (text(body.subarray(0, 35), 'latin1') === 'http://ns.adobe.com/xmp/extension/\0') {
+          throw new Error('This JPEG has extended XMP. Use a dedicated metadata editor.');
+        }
+        if (body.length >= JPEG_XMP.length && JPEG_XMP.every(function (value, index) { return body[index] === value; })) {
+          if (found) throw new Error('This JPEG contains multiple XMP packets.');
+          found = { start: markerAt, end: end, packet: body.subarray(JPEG_XMP.length) };
+        }
+      }
+      if (marker >= 0xe0 && marker <= 0xef && insertAt === markerAt) insertAt = end;
+      offset = end;
+    }
+    if (!reachedImage) throw new Error('The JPEG header could not be read safely.');
+    var packet = updatedXmp(found && found.packet, p);
+    var segmentLength = 2 + JPEG_XMP.length + packet.length;
+    if (segmentLength > 65535) throw new Error('The updated XMP is too large for this JPEG.');
+    var header = new Uint8Array([0xff, 0xe1, segmentLength >> 8, segmentLength & 255]);
+    return new Blob([file.slice(0, found ? found.start : insertAt), header, JPEG_XMP, packet,
+      file.slice(found ? found.end : insertAt)], { type: 'image/jpeg' });
+  }
+
+  $('saveMetadata').addEventListener('click', async function () {
+    var photo = metadataPhoto();
+    if (!photo) return;
+    this.disabled = true;
+    try {
+      var copy = await jpegWithMetadata(photo);
+      download(photo._file.name.replace(/(\.jpe?g)$/i, '-credited$1'), copy);
+      $('exportSummary').textContent = 'Downloaded a JPEG copy with updated attribution metadata. The source photo is unchanged.';
+    } catch (error) {
+      $('exportSummary').textContent = error.message;
+    } finally {
+      this.disabled = !metadataPhoto();
+    }
+  });
+
+  /* ---- V2 inline banner preview and portable HTML ---- */
+  function htmlText(value) {
+    return String(value || '').replace(/[&<>"']/g, function (character) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character];
+    });
+  }
+
+  function bannerMarkup(p, src, theme, position) {
+    var dark = theme === 'dark', overlay = position === 'overlay';
+    var bannerStyle = 'box-sizing:border-box;padding:.6em .85em;font:400 .875rem/1.4 system-ui,sans-serif;overflow-wrap:anywhere;'
+      + (dark ? 'background:#16201be8;color:#fff;' : 'background:#f7f5ef;color:#17231d;')
+      + (overlay ? 'position:absolute;inset:auto 0 0;' : '');
+    var credit = 'Photo: ' + p.credit.trim() + (p.source.trim() ? ' · ' + p.source.trim() : '');
+    var license = webURL(p.licenseUrl), source = webURL(p.link);
+    if (!license) {
+      var cc = /\bcc[ -]?(by(?:-(?:nc|nd|sa))*)[ -]?(\d\.\d)/i.exec(p.license);
+      if (cc) license = 'https://creativecommons.org/licenses/' + cc[1].toLowerCase() + '/' + cc[2] + '/';
+      else if (/\bcc0\b/i.test(p.license)) license = 'https://creativecommons.org/publicdomain/zero/1.0/';
+    }
+    var alt = p.title || ((p._usage || []).find(function (use) { return use.alt; }) || {}).alt || '';
+    function link(url, label) {
+      return '<a style="color:inherit;text-decoration:underline" href="' + htmlText(url) + '">' + htmlText(label) + '</a>';
+    }
+    return '<figure style="position:relative;margin:0;max-width:100%">\n'
+      + '  <img src="' + htmlText(src) + '" alt="' + htmlText(alt) + '" style="display:block;width:100%;height:auto">\n'
+      + '  <figcaption data-photo-credit style="' + bannerStyle + '">' + htmlText(credit) + ' · '
+      + (license ? link(license, p.license) : htmlText(p.license)) + (source ? ' · ' + link(source, 'Source') : '')
+      + '</figcaption>\n</figure>';
+  }
+
+  function paintBanner() {
+    var rows = exportRows.filter(function (p) { return publishable(p) && !p.skip && showMode(p) === 'all'; });
+    var theme = $('bannerTheme').value, position = $('bannerPosition').value;
+    var code = rows.map(function (p) {
+      var path = relativeImagePath(p.file).split('/').map(encodeURIComponent).join('/');
+      return bannerMarkup(p, './' + path, theme, position);
+    }).join('\n\n');
+    $('bannerCode').value = code;
+    $('bannerCode').placeholder = 'Select photos with complete credits set to display on the photo.';
+    $('saveBanners').disabled = !code;
+    $('copyBanners').disabled = !code;
+    var preview = $('bannerPreview'), local = rows.find(function (p) { return p._thumb; });
+    preview.textContent = '';
+    preview.style.width = $('bannerWidth').value === '320' ? '320px' : '640px';
+    if (local) {
+      var template = document.createElement('template');
+      template.innerHTML = bannerMarkup(local, local._thumb, theme, position);
+      template.content.querySelectorAll('a').forEach(function (link) { link.removeAttribute('href'); });
+      preview.appendChild(template.content);
+    }
+  }
+
+  ['bannerTheme', 'bannerPosition', 'bannerWidth'].forEach(function (id) { $(id).addEventListener('change', paintBanner); });
+  $('copyBanners').addEventListener('click', async function () {
+    try {
+      await navigator.clipboard.writeText($('bannerCode').value);
+      $('exportSummary').textContent = 'Copied the banner HTML.';
+    } catch (error) {
+      $('bannerCode').select();
+      $('exportSummary').textContent = 'Use Ctrl+C or Command+C to copy the selected HTML.';
+    }
+  });
+  $('saveBanners').addEventListener('click', function () {
+    if ($('bannerCode').value) download('photo-credit-banners.html', $('bannerCode').value + '\n', 'text/html');
   });
 
   window.addEventListener('beforeunload', function (e) { if (state.dirty) { e.preventDefault(); e.returnValue = ''; } });

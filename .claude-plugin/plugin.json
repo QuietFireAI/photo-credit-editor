@@ -1,8 +1,8 @@
 {
   "name": "photo-credit-editor",
   "displayName": "Photo Credit Editor",
-  "version": "1.2.0",
-  "description": "Make sure every picture on a website carries a proper credit: find the ones without, work out who made each and under what license, write the attribution, and show it on the site.",
+  "version": "1.3.0",
+  "description": "Audit photos in a folder you authorize. Review thumbnails, embedded metadata and missing credits, then export selected results as a Markdown audit or a merged credits manifest.",
   "author": {
     "name": "QuietFireAI",
     "email": "support@quietfireai.com"

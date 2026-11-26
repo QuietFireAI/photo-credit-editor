@@ -30,7 +30,9 @@ The scan reports 3 pictures found: 1 complete, 1 credited but incomplete, and 1 
 
 ## Try the editor
 
-Open `skills/photo-credits/assets/photo-credits-editor.html` in a browser, click **Choose site folder**, and pick this folder. The third picture shows a "Leads for this picture" box with the author stored in the file and a **Use as credit** button.
+1. Open `skills/photo-credits/assets/photo-credits-editor.html` in a desktop browser. Click **Choose scan folder**, select this sample folder, and click **Authorize scan**.
+2. Filter by **Attribution incomplete** and open the teal photo. Its embedded author is **Pat Example**. Click **Use as display credit** and enter **Used with permission** as the license for this sample.
+3. Click **Review photo export**. Download the Markdown audit and preview the merged manifest. The teal photo is the only proposed change. The original sample files stay intact.
 
 ## Try it with Claude
 

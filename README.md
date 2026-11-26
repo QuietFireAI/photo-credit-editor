@@ -1,14 +1,15 @@
 # Photo Credit Editor
 
-Make sure every picture on a website carries a proper credit.
+Audit website photos and export the attribution updates you approve.
 
 Most small sites collect pictures from many places: a local photographer, a historical society, Wikimedia Commons, a stock library, a neighbour's phone. Months later nobody remembers which came from where, and pictures go out with no credit or the wrong one. This plugin works through a site picture by picture until each one has a proper attribution, or is clearly marked as one that cannot be credited yet.
 
 ## What it does
 
-- **Finds every picture** in a site folder and sorts them: complete, credited but incomplete, no credit.
-- **Gathers leads for the ones that need work.** It reads the author, copyright, title and license stored inside each picture file, the alt text and captions on the pages that use it, and file names that match how picture sites name their downloads.
-- **Works out the attribution.** Claude follows the leads to the source page where it can, then shows you what it proposes for each picture and the evidence behind each value. Nothing is written until you confirm it.
+- **Audits a folder you authorize.** The editor separates likely photos, ambiguous assets and exclusions using page references, dimensions and file context.
+- **Shows the current state.** Review a thumbnail, embedded author and rights metadata, recorded attribution and any visible credit found in static site files.
+- **Exports your selection.** Download a Markdown audit or preview and download a merged `photo-credits.json`. When only embedded metadata needs updating, download a JPEG copy with standard XMP attribution fields.
+- **Works out the attribution.** With your approval, Claude can follow leads to source pages and show you the evidence for each proposed credit. Site files change only when you ask to apply the result.
 - **Knows what a proper credit needs.** A credit plus the license or permission. A Creative Commons picture also needs a link to its source page and the license version, and versions 3.0 and earlier need the title.
 - **Gives you an editor** you can use without Claude: a single web page that shows each picture, the leads found inside the file with a button to use them, and what is still missing.
 - **Shows credits on the site**: a caption on slideshows and pictures, and a credits page where Creative Commons licenses link to their license pages.
@@ -37,9 +38,11 @@ Give Claude access to your website folder and ask things like:
 - "Add a photo credits page and captions."
 - "Check the photo credits before we launch."
 
-To do it yourself, ask Claude for the Photo Credit Editor, open it in a browser, choose your site folder, fill in the credits, and download `photo-credits.json` into the top folder of your site.
+Open [Photo Credit Editor](skills/photo-credits/assets/photo-credits-editor.html) in a desktop browser. Choose a site folder or a local checkout of a repository you can read, authorize the scan, and review its thumbnails and credit fields. Select one, several, or all photos in view. Review the export, then add the downloaded artifacts to your project.
 
-A three-picture sample site for trying all of this is in [`examples/sample-site`](examples/sample-site).
+The **V2 preview** panel previews and exports self-contained inline credit banners for complete selected credits. The preview is available in this release.
+
+Try the [three-picture sample walkthrough](examples/sample-site/README.md) to see a complete credit, an incomplete credit, and an uncredited photo with embedded author metadata.
 
 ## Documentation
 
@@ -67,7 +70,7 @@ A three-picture sample site for trying all of this is in [`examples/sample-site`
 ## What it runs, reads and sends
 
 - `scan_photos.py` is Python 3 with the standard library only. It reads files inside the site folder you name, including the information stored inside picture files. It writes one file, `photo-credits.json`, and only when run with `--write`, where it adds blank entries and never changes existing ones. It makes no network requests.
-- The editor runs entirely in your browser. It reads the pictures in the folder you choose, on your computer, and uploads nothing. It keeps unsaved work in the browser's local storage so a closed tab does not lose it. The one link it offers, for a file named like a Wikimedia Commons download, opens that site only if you click it.
+- The editor runs entirely in your browser. It inspects photos and static HTML or CSS in the folder you authorize and uploads nothing. A download leaves the chosen files intact. Unsaved work stays in the browser's local storage.
 - `photo-credit.js` runs on your website and loads `photo-credits.json` from that same website. It contacts no other server and sets no cookies.
 - When Claude traces a picture to its source, Claude reads the source page or searches the web, in your conversation and at your request.
 

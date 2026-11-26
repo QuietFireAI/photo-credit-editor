@@ -118,30 +118,39 @@ Common values for the license field:
 | `source` | Where the picture came from, such as a collection or website |
 | `license` | The license or permission |
 | `link` | Address of the source page. Shown only if it starts with `http://` or `https://` |
+| `licenseUrl` | Optional link to the license terms |
+| `copyright` | Optional copyright notice |
+| `exactFile` | Set by the editor for newly approved entries to match the complete, case-sensitive path |
 | `skip` | Set to `true` for a picture that needs no credit, such as a logo or icon |
 | `show` | Where the credit is shown. Leave it out for a caption on the picture and an entry on the credits page. `"page"` shows it on the credits page only. `"none"` keeps the record without showing it anywhere |
 
-The file type is ignored when matching, so one entry for `mill.jpg` also covers `mill.webp`.
+An older entry can match an unambiguous alternate file extension. An entry marked `exactFile` applies only to its own file.
 
 ## The editor
 
 `skills/photo-credits/assets/photo-credits-editor.html` is a single file. Open it in a web browser. It needs no internet connection and uploads nothing.
 
-1. Click **Choose site folder** and pick the top folder of your site, the one that holds the home page. The editor lists every picture with a preview and its size in pixels. Click a preview to see the picture larger; press Escape or click outside it to close. If the folder already has a `photo-credits.json`, it is loaded. If the editor is already holding a different list, such as unsaved work from an earlier visit, it asks which one you want before changing anything.
-2. The editor reads each picture file that still needs work. Where it finds an author, copyright, title or license, a **Leads for this picture** box appears with a **Use** button beside each. Use a lead only if you know it is right.
-3. Fill in the rest. Under each picture the editor says **Complete**, **No credit yet**, or **Incomplete** with what is missing, and shows how the credit will read.
-4. Tick **No credit needed** for logos, icons and graphics you made yourself.
-5. Choose where each credit is shown with **Show the credit**: on the picture and the credits page (the usual choice), on the credits page only, or nowhere. "Nowhere" keeps the record without showing it. A Creative Commons license requires the credit to be shown, so a Creative Commons picture set to show nowhere is marked incomplete.
-6. Use **Needs work** to see only what is left.
-7. Click **Download photo-credits.json** and put the file in the top folder of your site.
+1. Click **Choose scan folder**, choose the site directory or authorized local repository checkout, and confirm the scope. If the folder has a manifest, it becomes the baseline for any export. If your browser already holds different edits, choose whether to use the folder credits or keep your draft.
+2. Review thumbnails, static usage, and the distinct statuses for embedded metadata, recorded attribution, and visible credits. **Needs photo review** shows ambiguous assets. The excluded-assets panel gives the reason each asset was set aside and lets you include it.
+3. Fill in the title, display credit, source, license or permission, and source URL as applicable. The embedded photographer, copyright notice, and license URL are optional. Use an embedded lead only after confirming it. The form shows which fields are still needed for a complete credit.
+4. Choose **Review photo export** for a single photo, or select multiple rows and click **Review selected exports**. **Select all in view** adds the results matching the current filter to your selection. Download `photo-credit-audit.md` to retain the findings and unresolved rows.
+5. Preview the manifest changes and download the merged `photo-credits.json`. The merge keeps unselected existing records and uses complete selected entries or explicit exclusions. Review the downloaded file before putting it at the site root.
 
 Other buttons: **Open photo-credits.json** loads an existing file without choosing a folder, and asks first if that would replace a list you are working on. **Add a picture** adds an entry by hand. **Remove** takes an entry out and offers **Undo**.
 
-**Small images.** Pictures smaller than 100 pixels on their longest side, such as icons, spacers and invisible tracking pixels, are left out of the list and the saved file. They are never dropped silently: a box above the list counts them, shows each one with its size, and has an **Add** button for any that are real pictures. Change the number in **Leave out images smaller than** to suit your site, or set it to 0 to list everything. Pictures already in your `photo-credits.json` are never left out, whatever their size.
+The default size threshold sets aside images under 100 pixels on their longest side. Lower the threshold to reconsider small images. Decorative assets can still be excluded based on the page markup or filename. Images already in the manifest remain available for review.
 
 Your browser will ask to confirm when you choose a folder. The files are read on your computer only. Unsaved work is kept in the browser, so closing the tab does not lose it; the editor tells you when it has picked up work from an earlier visit.
 
 Choosing a folder needs a desktop browser: Chrome, Edge, Firefox or Safari. Support on phones and tablets varies by browser and version, and where a browser cannot choose a folder the editor says so and switches that button off. You can still open and edit a `photo-credits.json` there, without previews or leads.
+
+### Update embedded metadata only
+
+Review a single JPEG with at least one attribution field filled in, then choose **Download JPEG with metadata**. The copy carries the populated fields in standard XMP while retaining the original image data and other metadata blocks. The original remains in place. The editor prefers XMP where it overlaps with older embedded fields. This can be enough for an internal archive or a site that already reads embedded attribution. Use the manifest or a site caption when visitors need to see the credit.
+
+### V2 preview · Inline banners
+
+In **Review exports**, open **V2 preview · Inline credit banners**. Select the theme and placement, then check wide and narrow previews. Copy the HTML or download it for the selected photos. The HTML references your existing files. Paste it into the site and adjust the image paths to suit the destination page.
 
 ## Showing credits on your site
 
@@ -226,7 +235,8 @@ Still stuck? See [SUPPORT.md](../SUPPORT.md).
 
 - The size limit judges a picture by its pixel size alone. A real photograph saved under 100 pixels is left out until you add it from the box or lower the limit.
 - The plugin finds, completes and records credits. It does not check whether you are allowed to use a picture, and it is not legal advice.
-- It cannot recognise a picture by its content. Finding the source of a picture that has no leads needs either your knowledge or a search by image, which the plugin does not do itself.
+- Photo classification uses file and static page signals. Client-side galleries and dynamically rendered credits may need manual review. The editor reads supported local HTML and CSS files up to 512 KiB each.
+- Metadata-only export supports JPEG files with standard XMP or no XMP. Use a dedicated editor for other formats or extended XMP.
 - The completeness rules know Creative Commons licenses. For any other license, an entry counts as complete once it has a credit and a license or permission; check that license's own terms for anything more it asks for.
 - Slideshows that move slides sideways need `data-active`, because the script cannot see which slide is on show otherwise.
 - Pictures loaded from another website are not in your site folder, so the scanner and the editor do not list them. You can add them by hand.

@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.3.0 - 2026-11-26
+
+- Authorize a local folder scan and review likely photos, ambiguous assets, and exclusions with thumbnails and reasons.
+- Check embedded metadata, manifest attribution, and visible credit in static site files separately. Review responsive alternatives and filter the results by what is missing.
+- Export one photo, selected photos, or all results in view. The Markdown audit includes unresolved items. The merged manifest previews selected changes and preserves unselected records.
+- Download a JPEG copy with updated author, credit, and rights fields in standard XMP. The original photo stays in place.
+- V2 preview adds bottom-overlay and below-photo credit banners with responsive previews and portable HTML export.
+- Harden scanner file access and manifest writes, cap PNG metadata expansion, scan image references in linear time, escape terminal controls in the CLI report, and keep the site renderer's manifest fetch on the same origin.
+
 ## 1.2.0 - 2026-11-18
 
 - Editor: click a preview to see the picture larger. Each preview shows the picture's size in pixels.
