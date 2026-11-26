@@ -73,6 +73,7 @@ NOTE = ("Edit with the Photo Credit Editor. One entry per picture. "
 FIELDS = ("file", "title", "credit", "source", "license", "link")
 REF_TOKEN = re.compile(r"[^\s\"'()<>=,;\\?#]+")
 REF_EXTENSION = re.compile(r"\.(?:jpe?g|png|webp|gif|avif)", re.IGNORECASE)
+TERMINAL_CONTROLS = {code: "\\x%02x" % code for code in (*range(32), *range(127, 160))}
 
 # File names that match how a picture site names its downloads. A match is a lead, not proof.
 NAME_HINTS = (
@@ -730,6 +731,10 @@ def save_manifest(path, manifest, original):
                 pass
 
 
+def terminal_text(value):
+    return str(value).translate(TERMINAL_CONTROLS)
+
+
 def main():
     ap = argparse.ArgumentParser(
         description="Check that every picture in a website folder has a proper credit, and gather leads.")
@@ -745,7 +750,7 @@ def main():
 
     site = os.path.realpath(args.site)
     if not os.path.isdir(site):
-        print("Not a folder: %s" % args.site, file=sys.stderr)
+        print("Not a folder: %s" % terminal_text(args.site), file=sys.stderr)
         return 2
     if args.manifest:
         parent, name = os.path.split(os.path.abspath(args.manifest))
@@ -756,7 +761,7 @@ def main():
     try:
         manifest, original_manifest = load_manifest(manifest_path)
     except (ValueError, OSError) as exc:
-        print("Could not read %s: %s" % (manifest_path, exc), file=sys.stderr)
+        print("Could not read %s: %s" % (terminal_text(manifest_path), terminal_text(exc)), file=sys.stderr)
         return 2
     existed = original_manifest is not None
 
@@ -859,7 +864,7 @@ def main():
             try:
                 save_manifest(manifest_path, ordered, original_manifest)
             except (ValueError, OSError) as exc:
-                print("Could not write %s: %s" % (manifest_path, exc), file=sys.stderr)
+                print("Could not write %s: %s" % (terminal_text(manifest_path), terminal_text(exc)), file=sys.stderr)
                 return 2
         blank.extend(unlisted)
         unlisted = []
@@ -888,8 +893,8 @@ def main():
         print(json.dumps(report, indent=1, ensure_ascii=False))
         return 1 if (args.check and need) else 0
 
-    print("Photo credit scan: %s" % site)
-    print("Manifest: %s%s" % (manifest_path, "" if existed else "  (did not exist)"))
+    print("Photo credit scan: %s" % terminal_text(site))
+    print("Manifest: %s%s" % (terminal_text(manifest_path), "" if existed else "  (did not exist)"))
     print()
     notes = []
     if files_found != len(kept):
@@ -913,23 +918,23 @@ def main():
             return
         print("\n%s" % title)
         for r in rows:
-            print("  %s  (%s px)" % (r["file"], r["px"]))
+            print("  %s  (%s px)" % (terminal_text(r["file"]), r["px"]))
             if r.get("show"):
                 print("      shown: %s" % ("on the credits page only" if r["show"] == "page" else "nowhere"))
             if r.get("credit"):
-                print("      credit: %s" % r["credit"])
+                print("      credit: %s" % terminal_text(r["credit"]))
             for m in r.get("missing", ()):
                 print("      missing: %s" % m)
             where = ", ".join(r["used_on"][:4]) + (" ..." if len(r["used_on"]) > 4 else "")
-            print("      used on: %s" % (where or "no mention found in site files"))
+            print("      used on: %s" % (terminal_text(where) or "no mention found in site files"))
             found = r.get("leads", {})
             inside = found.get("inside_the_file")
             if inside:
-                print("      inside the file: %s" % "; ".join('%s "%s"' % (k.replace("_", " "), v)
-                                                              for k, v in inside.items()))
+                fields = ('%s "%s"' % (k.replace("_", " "), terminal_text(v)) for k, v in inside.items())
+                print("      inside the file: %s" % "; ".join(fields))
             for item in found.get("on_the_page", ())[:3]:
-                parts = ['%s "%s"' % (k, item[k]) for k in ("alt", "caption") if k in item]
-                print("      on the page (%s): %s" % (item["page"], "; ".join(parts)))
+                parts = ['%s "%s"' % (k, terminal_text(item[k])) for k in ("alt", "caption") if k in item]
+                print("      on the page (%s): %s" % (terminal_text(item["page"]), "; ".join(parts)))
             for site_name in found.get("file_name", ()):
                 print("      file name: matches how %s names its files" % site_name)
             if not found:
@@ -942,13 +947,13 @@ def main():
         print("\nSet aside as smaller than %d px on the longest side (icons, spacers, tracking pixels)." % args.min_px)
         print("Not counted as needing work. Run with --min-px 0 to include them:")
         for r in small[:10]:
-            print("  %s  (%s px)" % (r["file"], r["px"]))
+            print("  %s  (%s px)" % (terminal_text(r["file"]), r["px"]))
         if len(small) > 10:
             print("  ... and %d more" % (len(small) - 10))
     if missing_files:
         print("\nListed, but the file is not in the folder:")
         for f in missing_files:
-            print("  %s" % f)
+            print("  %s" % terminal_text(f))
     if need:
         print("\nLeads are evidence to confirm, not credits. 'No mention found' means no page, stylesheet or "
               "script names that file; a script that builds file names in code can still load it.")
