@@ -71,7 +71,8 @@ MAX_PNG_TEXT_TOTAL = 256 * 1024
 NOTE = ("Edit with the Photo Credit Editor. One entry per picture. "
         "A picture with a blank credit stays off the credits page.")
 FIELDS = ("file", "title", "credit", "source", "license", "link")
-REF = re.compile(r"[^\s\"'()<>=,;\\?#]+\.(?:jpe?g|png|webp|gif|avif)", re.IGNORECASE)
+REF_TOKEN = re.compile(r"[^\s\"'()<>=,;\\?#]+")
+REF_EXTENSION = re.compile(r"\.(?:jpe?g|png|webp|gif|avif)", re.IGNORECASE)
 
 # File names that match how a picture site names its downloads. A match is a lead, not proof.
 NAME_HINTS = (
@@ -582,6 +583,17 @@ class Pictures:
         return []
 
 
+def image_references(body):
+    for token in REF_TOKEN.finditer(body):
+        start, end = token.span()
+        # Match the original greedy path rule by keeping the last image extension in each token.
+        last_end = start
+        for extension in REF_EXTENSION.finditer(body, start + 1, end):
+            last_end = extension.end()
+        if last_end > start:
+            yield body[start:last_end]
+
+
 def read_site_text(texts, manifest_abs, pictures):
     """Which site files mention each picture, and what the pages say about it."""
     refs, context = {}, {}
@@ -598,7 +610,7 @@ def read_site_text(texts, manifest_abs, pictures):
             body = raw.decode("utf-8", errors="ignore")
         except OSError:
             continue
-        for hit in set(REF.findall(body)):
+        for hit in set(image_references(body)):
             for key in pictures.find(hit, rel):
                 refs.setdefault(key, set()).add(rel)
         if os.path.splitext(rel)[1].lower() in HTML_EXT:
