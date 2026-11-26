@@ -43,13 +43,16 @@ With --write, existing entries are never changed or removed: new blank entries a
 No network access.
 """
 import argparse
+import errno
 import fnmatch
 import json
 import os
 import posixpath
 import re
+import stat
 import struct
 import sys
+import tempfile
 import zlib
 import xml.etree.ElementTree as ET
 from html.parser import HTMLParser
@@ -83,6 +86,34 @@ NAME_HINTS = (
     (re.compile(r"freepik", re.I), "Freepik"),
     (re.compile(r"flickr", re.I), "Flickr"),
 )
+
+
+def checked_stat(path, is_type=stat.S_ISREG):
+    """Accept regular files or directories reached without following links."""
+    info = os.lstat(path)
+    reparse = getattr(info, "st_file_attributes", 0) & stat.FILE_ATTRIBUTE_REPARSE_POINT
+    if (reparse or not is_type(info.st_mode)
+            or os.path.normcase(os.path.realpath(path)) != os.path.normcase(path)):
+        raise OSError(errno.EINVAL, "Expected an ordinary path without links", path)
+    return info
+
+
+def open_regular(path, mode, **kwargs):
+    def opener(name, flags):
+        before = checked_stat(name)
+        flags |= getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
+        fd = os.open(name, flags)
+        try:
+            actual = os.fstat(fd)
+            if (not stat.S_ISREG(actual.st_mode) or not os.path.samestat(before, actual)
+                    or not os.path.samestat(checked_stat(name), actual)):
+                raise OSError(errno.EAGAIN, "File changed while opening", name)
+        except BaseException:
+            os.close(fd)
+            raise
+        return fd
+
+    return open(path, mode, opener=opener, **kwargs)
 
 
 # ---------------------------------------------------------------- facts stored inside a picture file
@@ -291,10 +322,12 @@ def read_embedded(path):
     """Author, copyright, title and similar facts stored inside a picture file. Empty when there are none."""
     out = {}
     try:
-        if os.path.getsize(path) > MAX_IMAGE_BYTES:
+        with open_regular(path, "rb") as fh:
+            if os.fstat(fh.fileno()).st_size > MAX_IMAGE_BYTES:
+                return out
+            data = fh.read(MAX_IMAGE_BYTES + 1)
+        if len(data) > MAX_IMAGE_BYTES:
             return out
-        with open(path, "rb") as fh:
-            data = fh.read()
     except OSError:
         return out
     try:
@@ -341,7 +374,7 @@ SOF = {0xC0, 0xC1, 0xC2, 0xC3, 0xC5, 0xC6, 0xC7, 0xC9, 0xCA, 0xCB, 0xCD, 0xCE, 0
 def read_dims(path):
     """(width, height) in pixels read from the file header, or None when it cannot be read."""
     try:
-        with open(path, "rb") as fh:
+        with open_regular(path, "rb") as fh:
             data = fh.read(512 * 1024)
     except OSError:
         return None
@@ -466,16 +499,31 @@ def natural(text):
 def walk(site):
     images, texts = [], []
     for root, dirs, files in os.walk(site):
-        dirs[:] = sorted((d for d in dirs if not d.startswith(".") and d != "node_modules"), key=natural)
+        safe_dirs = []
+        for directory in dirs:
+            if directory.startswith(".") or directory == "node_modules":
+                continue
+            try:
+                checked_stat(os.path.join(root, directory), stat.S_ISDIR)
+            except OSError:
+                continue
+            safe_dirs.append(directory)
+        dirs[:] = sorted(safe_dirs, key=natural)
         for name in sorted(files, key=natural):
             if name.startswith("."):
                 continue
             full = os.path.join(root, name)
             rel = os.path.relpath(full, site).replace(os.sep, "/")
             ext = os.path.splitext(name)[1].lower()
+            if ext not in IMAGE_EXT and ext not in TEXT_EXT:
+                continue
+            try:
+                checked_stat(full)
+            except OSError:
+                continue
             if ext in IMAGE_EXT:
                 images.append((rel, full))
-            elif ext in TEXT_EXT:
+            else:
                 texts.append((rel, full))
     return images, texts
 
@@ -518,10 +566,13 @@ def read_site_text(texts, manifest_abs, pictures):
         if os.path.abspath(full) == manifest_abs:
             continue
         try:
-            if os.path.getsize(full) > MAX_TEXT_BYTES:
+            with open_regular(full, "rb") as fh:
+                if os.fstat(fh.fileno()).st_size > MAX_TEXT_BYTES:
+                    continue
+                raw = fh.read(MAX_TEXT_BYTES + 1)
+            if len(raw) > MAX_TEXT_BYTES:
                 continue
-            with open(full, "r", encoding="utf-8", errors="ignore") as fh:
-                body = fh.read()
+            body = raw.decode("utf-8", errors="ignore")
         except OSError:
             continue
         for hit in set(REF.findall(body)):
@@ -595,16 +646,53 @@ def problems(entry):
 
 
 def load_manifest(path):
-    if not os.path.exists(path):
-        return {"note": NOTE, "photos": []}, False
-    with open(path, "r", encoding="utf-8-sig") as fh:
+    try:
+        handle = open_regular(path, "r", encoding="utf-8-sig")
+    except FileNotFoundError:
+        return {"note": NOTE, "photos": []}, None
+    with handle as fh:
+        info = os.fstat(fh.fileno())
         data = json.load(fh)
     if isinstance(data, list):
         data = {"note": NOTE, "photos": data}
     if not isinstance(data, dict) or not isinstance(data.get("photos"), list):
         raise ValueError('expected an object with a "photos" list')
     data["photos"] = [p for p in data["photos"] if isinstance(p, dict)]
-    return data, True
+    return data, info
+
+
+def save_manifest(path, manifest, original):
+    directory = os.path.dirname(path)
+    directory_info = checked_stat(directory, stat.S_ISDIR)
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", newline="\n",
+                                         dir=directory, prefix=".photo-credits-", delete=False) as fh:
+            temporary = fh.name
+            if original is not None and hasattr(os, "fchmod"):
+                os.fchmod(fh.fileno(), stat.S_IMODE(original.st_mode) & 0o777)
+            json.dump(manifest, fh, indent=1, ensure_ascii=False)
+            fh.write("\n")
+        try:
+            current = checked_stat(path)
+        except FileNotFoundError:
+            current = None
+        directory_changed = not os.path.samestat(directory_info, checked_stat(directory, stat.S_ISDIR))
+        manifest_changed = (current is None) != (original is None)
+        if current is not None and original is not None:
+            manifest_changed = (not os.path.samestat(current, original)
+                                or current.st_mtime_ns != original.st_mtime_ns
+                                or current.st_size != original.st_size)
+        if directory_changed or manifest_changed:
+            raise OSError(errno.EAGAIN, "Manifest changed during scan", path)
+        os.replace(temporary, path)
+        temporary = None
+    finally:
+        if temporary is not None:
+            try:
+                os.unlink(temporary)
+            except FileNotFoundError:
+                pass
 
 
 def main():
@@ -620,17 +708,22 @@ def main():
     ap.add_argument("--min-px", type=int, default=100)
     args = ap.parse_args()
 
-    site = os.path.abspath(args.site)
+    site = os.path.realpath(args.site)
     if not os.path.isdir(site):
         print("Not a folder: %s" % args.site, file=sys.stderr)
         return 2
-    manifest_path = os.path.abspath(args.manifest) if args.manifest else os.path.join(site, "photo-credits.json")
+    if args.manifest:
+        parent, name = os.path.split(os.path.abspath(args.manifest))
+        manifest_path = os.path.join(os.path.realpath(parent), name)
+    else:
+        manifest_path = os.path.join(site, "photo-credits.json")
 
     try:
-        manifest, existed = load_manifest(manifest_path)
+        manifest, original_manifest = load_manifest(manifest_path)
     except (ValueError, OSError) as exc:
         print("Could not read %s: %s" % (manifest_path, exc), file=sys.stderr)
         return 2
+    existed = original_manifest is not None
 
     images, texts = walk(site)
     refs, context = read_site_text(texts, manifest_path, Pictures(images))
@@ -643,9 +736,9 @@ def main():
             excluded += 1
             continue
         try:
-            size = os.path.getsize(full)
+            size = checked_stat(full).st_size
         except OSError:
-            size = 0
+            continue
         if args.min_kb and size < args.min_kb * 1024:
             excluded += 1
             continue
@@ -728,9 +821,11 @@ def main():
             ordered = {"note": manifest["note"]}
             ordered.update({k: v for k, v in manifest.items() if k not in ("note", "photos")})
             ordered["photos"] = manifest["photos"]
-            with open(manifest_path, "w", encoding="utf-8", newline="\n") as fh:
-                json.dump(ordered, fh, indent=1, ensure_ascii=False)
-                fh.write("\n")
+            try:
+                save_manifest(manifest_path, ordered, original_manifest)
+            except (ValueError, OSError) as exc:
+                print("Could not write %s: %s" % (manifest_path, exc), file=sys.stderr)
+                return 2
         blank.extend(unlisted)
         unlisted = []
 
